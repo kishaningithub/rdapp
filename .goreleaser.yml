@@ -1,0 +1,41 @@
+project_name: rdapp
+
+before:
+  hooks:
+    - go mod download
+
+release:
+  github:
+    owner: kishaningithub
+    name: rdapp
+
+builds:
+  - main: ./cmd/main.go
+    binary: rdapp
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+brews:
+  - tap:
+      owner: kishaningithub
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://github.com/kishaningithub/rdapp
+    description: rdapp - redshift data api postgres proxy
+    license: MIT
+
+nfpms:
+  - id: rdapp
+    package_name: rdapp
+    homepage: https://github.com/kishaningithub/rdapp
+    description: rdapp - redshift data api postgres proxy
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
