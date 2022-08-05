@@ -1,7 +1,9 @@
 unit-test:
 	go test -v ./...
 
-build: download-deps tidy-deps fmt unit-test compile
+test: unit-test
+
+build: download-deps tidy-deps fmt test compile
 
 fmt: ## Run the code formatter
 	gofmt -l -s -w .
