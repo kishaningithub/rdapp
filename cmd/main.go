@@ -20,7 +20,7 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, examples)
 	}
-	flag.StringVar(&options.ListenAddress, "listen", "127.0.0.1:15432", "Listen address")
+	flag.StringVar(&options.ListenAddress, "listen", "127.0.0.1:25432", "Listen address")
 	flag.Parse()
 	err := rdapp.RunPostgresRedshiftProxy(options)
 	if err != nil {

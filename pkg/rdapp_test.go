@@ -10,13 +10,13 @@ import (
 
 func TestRdapp(t *testing.T) {
 	options := rdapp.Options{
-		ListenAddress: "localhost:15432",
+		ListenAddress: "localhost:25432",
 	}
 	go func() {
 		err := rdapp.RunPostgresRedshiftProxy(options)
 		require.NoError(t, err)
 	}()
-	databaseUrl := "postgres://postgres:mypassword@localhost:15432/postgres"
+	databaseUrl := "postgres://postgres:mypassword@localhost:25432/postgres"
 	conn, err := pgx.Connect(context.Background(), databaseUrl)
 	require.NoError(t, err)
 	t.Cleanup(func() {
