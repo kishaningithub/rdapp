@@ -33,6 +33,7 @@ nfpms:
   - id: rdapp
     package_name: rdapp
     homepage: https://github.com/kishaningithub/rdapp
+    maintainer: Kishan B <kishancs46@gmail.com>
     description: rdapp - redshift data api postgres proxy
     license: MIT
     formats:
