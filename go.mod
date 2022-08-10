@@ -1,6 +1,6 @@
 module github.com/kishaningithub/rdapp
 
-go 1.18
+go 1.19
 
 require (
 	github.com/jackc/pgproto3/v2 v2.3.0
