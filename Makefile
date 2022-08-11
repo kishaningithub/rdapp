@@ -1,5 +1,5 @@
 unit-test:
-	go test -v ./...
+	go test -race -v ./...
 
 test: unit-test
 
