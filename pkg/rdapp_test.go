@@ -3,7 +3,7 @@ package rdapp_test
 import (
 	"context"
 	"github.com/jackc/pgx/v4"
-	rdapp "github.com/kishaningithub/rdapp/pkg"
+	"github.com/kishaningithub/rdapp/pkg"
 	"github.com/stretchr/testify/require"
 	"testing"
 )

@@ -37,7 +37,7 @@ func (p *RedshiftBackend) Run() error {
 		if err != nil {
 			return fmt.Errorf("error receiving message: %w", err)
 		}
-		log.Printf("received message %#v", msg)
+		log.Printf("message received message=%#v", msg)
 
 		switch msg.(type) {
 		case *pgproto3.Query, *pgproto3.Parse:
@@ -73,7 +73,7 @@ func (p *RedshiftBackend) handleStartup() error {
 	if err != nil {
 		return fmt.Errorf("error receiving startup message: %w", err)
 	}
-	log.Printf("startup message received %#v", startupMessage)
+	log.Printf("startup message received message=%#v", startupMessage)
 
 	switch startupMessage.(type) {
 	case *pgproto3.StartupMessage:
