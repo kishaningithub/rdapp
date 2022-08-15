@@ -7,6 +7,17 @@ import (
 	"io"
 )
 
+type BackendResponse []pgproto3.BackendMessage
+
+func (response BackendResponse) Send(writer io.Writer) error {
+	var buff []byte
+	for _, r := range response {
+		buff = r.Encode(buff)
+	}
+	_, err := writer.Write(buff)
+	return err
+}
+
 type RedshiftBackend struct {
 	backend *pgproto3.Backend
 	conn    io.ReadWriteCloser
@@ -40,24 +51,44 @@ func (redshiftBackend *RedshiftBackend) Run() error {
 		}
 		redshiftBackend.logger.Info("message received", zap.Any("message", msg))
 
-		switch msg.(type) {
+		switch parsedMsg := msg.(type) {
 		case *pgproto3.Query, *pgproto3.Parse:
-			response := "it works :-P"
-			buf := (&pgproto3.RowDescription{Fields: []pgproto3.FieldDescription{
-				{
-					Name:                 []byte("haha"),
-					TableOID:             0,
-					TableAttributeNumber: 0,
-					DataTypeOID:          25,
-					DataTypeSize:         -1,
-					TypeModifier:         -1,
-					Format:               0,
-				},
-			}}).Encode(nil)
-			buf = (&pgproto3.DataRow{Values: [][]byte{[]byte(response)}}).Encode(buf)
-			buf = (&pgproto3.CommandComplete{CommandTag: []byte("SELECT 1")}).Encode(buf)
-			buf = (&pgproto3.ReadyForQuery{TxStatus: 'I'}).Encode(buf)
-			_, err = redshiftBackend.conn.Write(buf)
+			response := BackendResponse{
+				&pgproto3.RowDescription{
+					Fields: []pgproto3.FieldDescription{
+						{
+							Name:                 []byte("haha"),
+							TableOID:             0,
+							TableAttributeNumber: 0,
+							DataTypeOID:          25,
+							DataTypeSize:         -1,
+							TypeModifier:         -1,
+							Format:               0,
+						},
+					}},
+				&pgproto3.DataRow{Values: [][]byte{[]byte("something")}},
+				&pgproto3.CommandComplete{CommandTag: []byte("SELECT 1")},
+				&pgproto3.ReadyForQuery{TxStatus: 'I'},
+			}
+			err := response.Send(redshiftBackend.conn)
+			if err != nil {
+				return fmt.Errorf("error writing query response: %w", err)
+			}
+		case *pgproto3.Describe:
+			response := BackendResponse{
+				&pgproto3.RowDescription{
+					Fields: []pgproto3.FieldDescription{
+						{
+							Name: []byte(parsedMsg.Name),
+						},
+					}},
+			}
+			err := response.Send(redshiftBackend.conn)
+			if err != nil {
+				return fmt.Errorf("error writing query response: %w", err)
+			}
+		case *pgproto3.Sync:
+			_, err = redshiftBackend.conn.Write(parsedMsg.Encode(nil))
 			if err != nil {
 				return fmt.Errorf("error writing query response: %w", err)
 			}
@@ -78,23 +109,24 @@ func (redshiftBackend *RedshiftBackend) handleStartup() error {
 
 	switch startupMessage.(type) {
 	case *pgproto3.StartupMessage:
-		buf := (&pgproto3.AuthenticationOk{}).Encode(nil)
-		// buf = (&pgproto3.ParameterStatus{Name: "application_name", Value: "psql"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "client_encoding", Value: "UTF8"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "DateStyle", Value: "ISO"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "integer_datetimes", Value: "on"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "IntervalStyle", Value: "postgres"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "is_superuser", Value: "on"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "server_encoding", Value: "UTF8"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "server_version", Value: "11.5"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "session_authorization", Value: "jack"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "standard_conforming_strings", Value: "on"}).Encode(buf)
-		buf = (&pgproto3.ParameterStatus{Name: "TimeZone", Value: "US/Central"}).Encode(buf)
-		buf = (&pgproto3.BackendKeyData{ProcessID: 31007, SecretKey: 1013083042}).Encode(buf)
-		buf = (&pgproto3.ReadyForQuery{TxStatus: 'I'}).Encode(buf)
-		_, err = redshiftBackend.conn.Write(buf)
+		response := BackendResponse{
+			&pgproto3.AuthenticationOk{},
+			&pgproto3.ParameterStatus{Name: "client_encoding", Value: "UTF8"},
+			&pgproto3.ParameterStatus{Name: "DateStyle", Value: "ISO"},
+			&pgproto3.ParameterStatus{Name: "integer_datetimes", Value: "on"},
+			&pgproto3.ParameterStatus{Name: "IntervalStyle", Value: "postgres"},
+			&pgproto3.ParameterStatus{Name: "is_superuser", Value: "on"},
+			&pgproto3.ParameterStatus{Name: "server_encoding", Value: "UTF8"},
+			&pgproto3.ParameterStatus{Name: "server_version", Value: "11.5"},
+			&pgproto3.ParameterStatus{Name: "session_authorization", Value: "jack"},
+			&pgproto3.ParameterStatus{Name: "standard_conforming_strings", Value: "on"},
+			&pgproto3.ParameterStatus{Name: "TimeZone", Value: "US/Central"},
+			&pgproto3.BackendKeyData{ProcessID: 31007, SecretKey: 1013083042},
+			&pgproto3.ReadyForQuery{TxStatus: 'I'},
+		}
+		err := response.Send(redshiftBackend.conn)
 		if err != nil {
-			return fmt.Errorf("error sending ready for query: %w", err)
+			return fmt.Errorf("error writing query response: %w", err)
 		}
 	case *pgproto3.SSLRequest:
 		_, err = redshiftBackend.conn.Write([]byte("N"))

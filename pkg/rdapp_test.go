@@ -34,7 +34,7 @@ func TestRdapp(t *testing.T) {
 	//t.Run("test query execution", func(t *testing.T) {
 	//	var name string
 	//	var weight int64
-	//	err = conn.QueryRow(context.Background(), "select name, weight from widgets where id=$1", 42).Scan(&name, &weight)
+	//	err = conn.QueryRow(context.Background(), "select name, weight from widgets limit 1").Scan(&name, &weight)
 	//	require.NoError(t, err)
 	//	fmt.Println(name, weight)
 	//})
