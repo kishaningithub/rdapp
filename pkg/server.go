@@ -9,9 +9,10 @@ import (
 
 type BackendResponse []pgproto3.BackendMessage
 
-func (response BackendResponse) Send(writer io.Writer) error {
+func (response BackendResponse) Send(writer io.Writer, logger *zap.Logger) error {
 	var buff []byte
 	for _, r := range response {
+		logger.Info("sent response", zap.Any("message", r))
 		buff = r.Encode(buff)
 	}
 	_, err := writer.Write(buff)
@@ -70,7 +71,7 @@ func (redshiftBackend *RedshiftBackend) Run() error {
 				&pgproto3.CommandComplete{CommandTag: []byte("SELECT 1")},
 				&pgproto3.ReadyForQuery{TxStatus: 'I'},
 			}
-			err := response.Send(redshiftBackend.conn)
+			err := response.Send(redshiftBackend.conn, redshiftBackend.logger)
 			if err != nil {
 				return fmt.Errorf("error writing query response: %w", err)
 			}
@@ -83,7 +84,7 @@ func (redshiftBackend *RedshiftBackend) Run() error {
 						},
 					}},
 			}
-			err := response.Send(redshiftBackend.conn)
+			err := response.Send(redshiftBackend.conn, redshiftBackend.logger)
 			if err != nil {
 				return fmt.Errorf("error writing query response: %w", err)
 			}
@@ -124,7 +125,7 @@ func (redshiftBackend *RedshiftBackend) handleStartup() error {
 			&pgproto3.BackendKeyData{ProcessID: 31007, SecretKey: 1013083042},
 			&pgproto3.ReadyForQuery{TxStatus: 'I'},
 		}
-		err := response.Send(redshiftBackend.conn)
+		err := response.Send(redshiftBackend.conn, redshiftBackend.logger)
 		if err != nil {
 			return fmt.Errorf("error writing query response: %w", err)
 		}
