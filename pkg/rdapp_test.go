@@ -5,6 +5,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/kishaningithub/rdapp/pkg"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"testing"
 )
 
@@ -12,8 +14,9 @@ func TestRdapp(t *testing.T) {
 	options := rdapp.Options{
 		ListenAddress: "localhost:25432",
 	}
+	logger := constructLogger(t)
 	go func() {
-		err := rdapp.RunPostgresRedshiftProxy(options)
+		err := rdapp.RunPostgresRedshiftProxy(options, logger)
 		require.NoError(t, err)
 	}()
 	databaseUrl := "postgres://postgres:mypassword@localhost:25432/postgres"
@@ -35,4 +38,13 @@ func TestRdapp(t *testing.T) {
 	//	require.NoError(t, err)
 	//	fmt.Println(name, weight)
 	//})
+}
+
+func constructLogger(t *testing.T) *zap.Logger {
+	t.Helper()
+	productionConfig := zap.NewProductionConfig()
+	productionConfig.EncoderConfig.TimeKey = "timestamp"
+	productionConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	logger, _ := productionConfig.Build()
+	return logger
 }

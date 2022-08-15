@@ -2,42 +2,43 @@ package rdapp
 
 import (
 	"fmt"
-	"io"
-	"log"
-
 	"github.com/jackc/pgproto3/v2"
+	"go.uber.org/zap"
+	"io"
 )
 
 type RedshiftBackend struct {
 	backend *pgproto3.Backend
 	conn    io.ReadWriteCloser
+	logger  *zap.Logger
 }
 
-func NewRedshiftBackend(conn io.ReadWriteCloser) *RedshiftBackend {
+func NewRedshiftBackend(conn io.ReadWriteCloser, logger *zap.Logger) *RedshiftBackend {
 	backend := pgproto3.NewBackend(pgproto3.NewChunkReader(conn), conn)
 
 	connHandler := &RedshiftBackend{
 		backend: backend,
 		conn:    conn,
+		logger:  logger,
 	}
 
 	return connHandler
 }
 
-func (p *RedshiftBackend) Run() error {
-	defer p.Close()
+func (redshiftBackend *RedshiftBackend) Run() error {
+	defer redshiftBackend.Close()
 
-	err := p.handleStartup()
+	err := redshiftBackend.handleStartup()
 	if err != nil {
 		return err
 	}
 
 	for {
-		msg, err := p.backend.Receive()
+		msg, err := redshiftBackend.backend.Receive()
 		if err != nil {
 			return fmt.Errorf("error receiving message: %w", err)
 		}
-		log.Printf("message received message=%#v", msg)
+		redshiftBackend.logger.Info("message received", zap.Any("message", msg))
 
 		switch msg.(type) {
 		case *pgproto3.Query, *pgproto3.Parse:
@@ -56,7 +57,7 @@ func (p *RedshiftBackend) Run() error {
 			buf = (&pgproto3.DataRow{Values: [][]byte{[]byte(response)}}).Encode(buf)
 			buf = (&pgproto3.CommandComplete{CommandTag: []byte("SELECT 1")}).Encode(buf)
 			buf = (&pgproto3.ReadyForQuery{TxStatus: 'I'}).Encode(buf)
-			_, err = p.conn.Write(buf)
+			_, err = redshiftBackend.conn.Write(buf)
 			if err != nil {
 				return fmt.Errorf("error writing query response: %w", err)
 			}
@@ -68,12 +69,12 @@ func (p *RedshiftBackend) Run() error {
 	}
 }
 
-func (p *RedshiftBackend) handleStartup() error {
-	startupMessage, err := p.backend.ReceiveStartupMessage()
+func (redshiftBackend *RedshiftBackend) handleStartup() error {
+	startupMessage, err := redshiftBackend.backend.ReceiveStartupMessage()
 	if err != nil {
 		return fmt.Errorf("error receiving startup message: %w", err)
 	}
-	log.Printf("startup message received message=%#v", startupMessage)
+	redshiftBackend.logger.Info("startup message received", zap.Any("message", startupMessage))
 
 	switch startupMessage.(type) {
 	case *pgproto3.StartupMessage:
@@ -91,16 +92,16 @@ func (p *RedshiftBackend) handleStartup() error {
 		buf = (&pgproto3.ParameterStatus{Name: "TimeZone", Value: "US/Central"}).Encode(buf)
 		buf = (&pgproto3.BackendKeyData{ProcessID: 31007, SecretKey: 1013083042}).Encode(buf)
 		buf = (&pgproto3.ReadyForQuery{TxStatus: 'I'}).Encode(buf)
-		_, err = p.conn.Write(buf)
+		_, err = redshiftBackend.conn.Write(buf)
 		if err != nil {
 			return fmt.Errorf("error sending ready for query: %w", err)
 		}
 	case *pgproto3.SSLRequest:
-		_, err = p.conn.Write([]byte("N"))
+		_, err = redshiftBackend.conn.Write([]byte("N"))
 		if err != nil {
 			return fmt.Errorf("error sending deny SSL request: %w", err)
 		}
-		return p.handleStartup()
+		return redshiftBackend.handleStartup()
 	default:
 		return fmt.Errorf("unknown startup message: %#v", startupMessage)
 	}
@@ -108,6 +109,6 @@ func (p *RedshiftBackend) handleStartup() error {
 	return nil
 }
 
-func (p *RedshiftBackend) Close() error {
-	return p.conn.Close()
+func (redshiftBackend *RedshiftBackend) Close() error {
+	return redshiftBackend.conn.Close()
 }
