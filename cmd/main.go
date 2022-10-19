@@ -25,7 +25,7 @@ func main() {
 	flag.StringVar(&options.ListenAddress, "listen", "127.0.0.1:25432", "Listen address")
 	flag.Parse()
 
-	err := rdapp.RunPostgresRedshiftProxy(options, logger)
+	err := rdapp.NewPostgresRedshiftProxy(options, logger).Run()
 	if err != nil {
 		logger.Error("error while creating postgres redshift proxy", zap.Error(err))
 	}
@@ -35,6 +35,7 @@ func constructLogger() *zap.Logger {
 	productionConfig := zap.NewProductionConfig()
 	productionConfig.EncoderConfig.TimeKey = "timestamp"
 	productionConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	productionConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	logger, _ := productionConfig.Build()
 	return logger
 }
