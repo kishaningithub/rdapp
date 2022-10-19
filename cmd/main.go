@@ -25,7 +25,7 @@ func main() {
 	flag.StringVar(&options.ListenAddress, "listen", "127.0.0.1:25432", "Listen address")
 	flag.Parse()
 
-	err := rdapp.NewPostgresRedshiftProxy(options, logger).Run()
+	err := rdapp.NewPostgresRedshiftDataAPIProxy(options, logger).Run()
 	if err != nil {
 		logger.Error("error while creating postgres redshift proxy", zap.Error(err))
 	}

@@ -11,14 +11,14 @@ import (
 	"testing"
 )
 
-func TestRdapp(t *testing.T) {
+func TestRedshiftDataAPIProxy(t *testing.T) {
 	options := rdapp.Options{
 		ListenAddress: "localhost:25432",
 	}
 	logger := constructLogger(t)
 	go func() {
 		logger.Info("Starting test instance of postgres redshift proxy...")
-		err := rdapp.NewPostgresRedshiftProxy(options, logger).Run()
+		err := rdapp.NewPostgresRedshiftDataAPIProxy(options, logger).Run()
 		require.NoError(t, err)
 	}()
 	databaseUrl := "postgres://postgres:mypassword@localhost:25432/postgres"

@@ -21,7 +21,7 @@ type postgresRedshiftProxy struct {
 	logger  *zap.Logger
 }
 
-func NewPostgresRedshiftProxy(options Options, logger *zap.Logger) PostgresRedshiftProxy {
+func NewPostgresRedshiftDataAPIProxy(options Options, logger *zap.Logger) PostgresRedshiftProxy {
 	return &postgresRedshiftProxy{
 		options: options,
 		logger:  logger,
