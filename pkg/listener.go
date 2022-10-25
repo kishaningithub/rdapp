@@ -1,46 +1,38 @@
 package rdapp
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	wire "github.com/jeroenrinzema/psql-wire"
 	"go.uber.org/zap"
 )
 
-type Options struct {
-	ListenAddress string
-}
-
 type PostgresRedshiftProxy interface {
 	Run() error
 }
 
 type postgresRedshiftProxy struct {
-	options Options
-	logger  *zap.Logger
+	listenAddress string
+	simpleQueryFn wire.SimpleQueryFn
+	logger        *zap.Logger
 }
 
-func NewPostgresRedshiftDataAPIProxy(options Options, logger *zap.Logger) PostgresRedshiftProxy {
+func NewPostgresRedshiftDataAPIProxy(listenAddress string, simpleQueryFn wire.SimpleQueryFn, logger *zap.Logger) PostgresRedshiftProxy {
 	return &postgresRedshiftProxy{
-		options: options,
-		logger:  logger,
+		listenAddress: listenAddress,
+		simpleQueryFn: simpleQueryFn,
+		logger:        logger,
 	}
 }
 
 func (proxy *postgresRedshiftProxy) Run() error {
-	server, err := wire.NewServer(wire.Logger(proxy.logger), wire.SimpleQuery(proxy.queryHandler), wire.ClientAuth(tls.NoClientCert))
+	server, err := wire.NewServer(wire.Logger(proxy.logger), wire.SimpleQuery(proxy.simpleQueryFn), wire.ClientAuth(tls.NoClientCert))
 	if err != nil {
 		return fmt.Errorf("error while instantiating server: %w", err)
 	}
-	err = server.ListenAndServe(proxy.options.ListenAddress)
+	err = server.ListenAndServe(proxy.listenAddress)
 	if err != nil {
-		return fmt.Errorf("error while listening to %s: %w", proxy.options.ListenAddress, err)
+		return fmt.Errorf("error while listening to %s: %w", proxy.listenAddress, err)
 	}
 	return nil
-}
-
-func (proxy *postgresRedshiftProxy) queryHandler(ctx context.Context, query string, writer wire.DataWriter) error {
-	proxy.logger.Info("received query", zap.String("query", query))
-	return writer.Complete("OK")
 }
