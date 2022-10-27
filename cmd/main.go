@@ -9,46 +9,50 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
 )
 
 func main() {
+	logger := constructLogger()
+	defer logger.Sync()
 	var listenAddress string
 	var dbUser string
 	var clusterIdentifier string
+	var database string
+	var secretArn string
+	var workgroupName string
 	var rootCmd = &cobra.Command{
 		Use:   "rdapp",
 		Short: "rdapp - Redshift Data API Postgres Proxy",
 		Long:  `Use your favourite postgres tools to query redshift via redshift data api`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := constructLogger()
-			defer logger.Sync()
 			cfg, err := config.LoadDefaultConfig(context.Background())
 			if err != nil {
-				logger.Fatal("error while loading aws config", zap.Error(err))
+				return fmt.Errorf("error while loading aws config: %w", err)
 			}
 			redshiftDataApiClient := redshiftdata.NewFromConfig(cfg)
 			redshiftDataApiConfig := &rdapp.RedshiftDataAPIConfig{
-				Database:          nil,
+				Database:          getFlagValue(database),
 				ClusterIdentifier: getFlagValue(clusterIdentifier),
 				DbUser:            getFlagValue(dbUser),
-				SecretArn:         nil,
-				WorkgroupName:     nil,
+				SecretArn:         getFlagValue(secretArn),
+				WorkgroupName:     getFlagValue(workgroupName),
 			}
 			redshiftDataApiQueryHandler := rdapp.NewRedshiftDataApiQueryHandler(redshiftDataApiClient, redshiftDataApiConfig, logger)
 			err = rdapp.NewPostgresRedshiftDataAPIProxy(listenAddress, redshiftDataApiQueryHandler.QueryHandler, logger).Run()
 			if err != nil {
-				logger.Error("error while creating postgres redshift proxy", zap.Error(err))
+				return fmt.Errorf("error while creating postgres redshift proxy: %w", err)
 			}
 			return nil
 		},
 	}
-	rootCmd.Flags().StringVar(&listenAddress, "listen", "127.0.0.1:25432", "Listen address")
-	rootCmd.Flags().StringVar(&dbUser, "db-user", "", "DB user")
-	rootCmd.Flags().StringVar(&clusterIdentifier, "cluster-identifier", "", "DB user")
+	rootCmd.Flags().StringVar(&listenAddress, "listen", "127.0.0.1:25432", "")
+	rootCmd.Flags().StringVar(&clusterIdentifier, "cluster-identifier", "", "")
+	rootCmd.Flags().StringVar(&database, "database", "", "")
+	rootCmd.Flags().StringVar(&dbUser, "db-user", "", "")
+	rootCmd.Flags().StringVar(&secretArn, "secret-arn", "", "")
+	rootCmd.Flags().StringVar(&workgroupName, "workgroup-name", "", "")
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		logger.Fatal("sorry", zap.Error(err))
 	}
 }
 
