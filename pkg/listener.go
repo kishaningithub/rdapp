@@ -1,36 +1,38 @@
 package rdapp
 
 import (
+	"crypto/tls"
 	"fmt"
+	wire "github.com/jeroenrinzema/psql-wire"
 	"go.uber.org/zap"
-	"net"
 )
 
-type Options struct {
-	ListenAddress string
+type PostgresRedshiftProxy interface {
+	Run() error
 }
 
-func RunPostgresRedshiftProxy(options Options, logger *zap.Logger) error {
-	listener, err := net.Listen("tcp", options.ListenAddress)
+type postgresRedshiftProxy struct {
+	listenAddress string
+	simpleQueryFn wire.SimpleQueryFn
+	logger        *zap.Logger
+}
+
+func NewPostgresRedshiftDataAPIProxy(listenAddress string, simpleQueryFn wire.SimpleQueryFn, logger *zap.Logger) PostgresRedshiftProxy {
+	return &postgresRedshiftProxy{
+		listenAddress: listenAddress,
+		simpleQueryFn: simpleQueryFn,
+		logger:        logger,
+	}
+}
+
+func (proxy *postgresRedshiftProxy) Run() error {
+	server, err := wire.NewServer(wire.Logger(proxy.logger), wire.SimpleQuery(proxy.simpleQueryFn), wire.ClientAuth(tls.NoClientCert))
 	if err != nil {
-		return fmt.Errorf("error while listening to %s: %w", options.ListenAddress, err)
+		return fmt.Errorf("error while instantiating server: %w", err)
 	}
-	logger.Info("listening for incoming connections", zap.String("port", options.ListenAddress))
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return fmt.Errorf("error while accepting a new connection: %w", err)
-		}
-		logger.Info("accepted new connection", zap.String("address", conn.RemoteAddr().String()))
-
-		backend := NewRedshiftBackend(conn, logger)
-		go func() {
-			err := backend.Run()
-			if err != nil {
-				logger.Error("error occurred", zap.Error(err))
-			}
-			logger.Info("closed  connection", zap.String("address", conn.RemoteAddr().String()))
-		}()
+	err = server.ListenAndServe(proxy.listenAddress)
+	if err != nil {
+		return fmt.Errorf("error while listening to %s: %w", proxy.listenAddress, err)
 	}
+	return nil
 }
