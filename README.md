@@ -88,6 +88,7 @@ Flags:
   -h, --help                        help for rdapp
       --listen string                (default "127.0.0.1:25432")
       --secret-arn string
+      --verbose                     verbose output
       --workgroup-name string
 ```
 
