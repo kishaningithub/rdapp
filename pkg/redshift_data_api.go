@@ -122,26 +122,24 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 }
 
 func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresType(redshiftTypeName string) (oid.Oid, error) {
-	switch redshiftTypeName {
-	case "varchar":
-		return oid.T_varchar, nil
-	case "timestamptz":
-		return oid.T_timestamptz, nil
-	case "float4":
-		return oid.T_float4, nil
-	case "float8":
-		return oid.T_float8, nil
-	case "int2":
-		return oid.T_int2, nil
-	case "int4":
-		return oid.T_int4, nil
-	case "int8":
-		return oid.T_int8, nil
-	case "super":
-		return oid.T_json, nil
-	default:
+	typeConversions := map[string]oid.Oid{
+		"varchar":     oid.T_varchar,
+		"bpchar":      oid.T_bpchar,
+		"bool":        oid.T_bool,
+		"timestamp":   oid.T_timestamp,
+		"timestamptz": oid.T_timestamptz,
+		"float4":      oid.T_float4,
+		"float8":      oid.T_float8,
+		"int2":        oid.T_int2,
+		"int4":        oid.T_int4,
+		"int8":        oid.T_int8,
+		"super":       oid.T_json,
+	}
+	value, exists := typeConversions[redshiftTypeName]
+	if !exists {
 		return 0, fmt.Errorf("no convertor found redshiftTypeName=%v", redshiftTypeName)
 	}
+	return value, nil
 }
 
 func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context, query string) (string, error) {
