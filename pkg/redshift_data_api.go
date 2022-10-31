@@ -182,18 +182,20 @@ func (handler *redshiftDataApiQueryHandler) waitForQueryToFinish(ctx context.Con
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId))
 			return result, nil
 		case types.StatusStringAborted:
+			err := fmt.Errorf(*result.Error)
 			handler.logger.Error("query aborted",
 				zap.String("queryId", queryId),
-				zap.Error(fmt.Errorf(*result.Error)),
+				zap.Error(err),
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId))
-			return nil, fmt.Errorf("query aborted")
+			return nil, fmt.Errorf("query aborted: %w", err)
 		case types.StatusStringFailed:
+			err := fmt.Errorf(*result.Error)
 			handler.logger.Error("query failed",
 				zap.String("queryId", queryId),
-				zap.Error(fmt.Errorf(*result.Error)),
+				zap.Error(err),
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId),
 				zap.String("query", *result.QueryString))
-			return nil, fmt.Errorf("query failed")
+			return nil, fmt.Errorf("query failed: %w", err)
 		default:
 			handler.logger.Debug("query status", zap.String("queryStatus", string(result.Status)))
 		}
