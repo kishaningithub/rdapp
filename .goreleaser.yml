@@ -4,14 +4,11 @@ before:
   hooks:
     - go mod download
 
-release:
-  github:
-    owner: kishaningithub
-    name: rdapp
-
 builds:
-  - main: ./cmd/main.go
+  - main: ./cmd/root.go
     binary: rdapp
+    ldflags:
+      - -X github.com/kishaningithub/rdapp/cmd.Version={{.Version}}
     goos:
       - windows
       - darwin
@@ -33,8 +30,8 @@ nfpms:
   - id: rdapp
     package_name: rdapp
     homepage: https://github.com/kishaningithub/rdapp
-    maintainer: Kishan B <kishancs46@gmail.com>
     description: rdapp - redshift data api postgres proxy
+    maintainer: Kishan B <kishancs46@gmail.com>
     license: MIT
     formats:
       - apk

@@ -88,7 +88,8 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 		if err != nil {
 			handler.logger.Error("error while writing column definition in result set",
 				zap.String("queryId", queryId),
-				zap.Error(err), zap.Any("columnMetadata", result.ColumnMetadata))
+				zap.Error(err),
+				zap.Any("columnMetadata", result.ColumnMetadata))
 			return err
 		}
 		for _, recordRow := range result.Records {
@@ -113,7 +114,8 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 			if err != nil {
 				handler.logger.Error("error while writing row in result set",
 					zap.String("queryId", queryId),
-					zap.Error(err), zap.Any("recordRow", recordRow))
+					zap.Error(err),
+					zap.Any("recordRow", recordRow))
 				return err
 			}
 		}
@@ -122,26 +124,25 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 }
 
 func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresType(redshiftTypeName string) (oid.Oid, error) {
-	switch redshiftTypeName {
-	case "varchar":
-		return oid.T_varchar, nil
-	case "timestamptz":
-		return oid.T_timestamptz, nil
-	case "float4":
-		return oid.T_float4, nil
-	case "float8":
-		return oid.T_float8, nil
-	case "int2":
-		return oid.T_int2, nil
-	case "int4":
-		return oid.T_int4, nil
-	case "int8":
-		return oid.T_int8, nil
-	case "super":
-		return oid.T_json, nil
-	default:
+	typeConversions := map[string]oid.Oid{
+		"varchar":     oid.T_varchar,
+		"bpchar":      oid.T_bpchar,
+		"bool":        oid.T_bool,
+		"timestamp":   oid.T_timestamp,
+		"timestamptz": oid.T_timestamptz,
+		"float4":      oid.T_float4,
+		"float8":      oid.T_float8,
+		"int2":        oid.T_int2,
+		"int4":        oid.T_int4,
+		"int8":        oid.T_int8,
+		"super":       oid.T_json,
+	}
+	value, exists := typeConversions[redshiftTypeName]
+	if !exists {
+		handler.logger.Error("no convertor found for redshift type", zap.String("redshiftTypeName", redshiftTypeName))
 		return 0, fmt.Errorf("no convertor found redshiftTypeName=%v", redshiftTypeName)
 	}
+	return value, nil
 }
 
 func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context, query string) (string, error) {
@@ -156,10 +157,13 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 		WorkgroupName:     handler.redshiftDataAPIConfig.WorkgroupName,
 	})
 	if err != nil {
+		handler.logger.Error("error while performing execute statement operation",
+			zap.Error(err))
 		return "", err
 	}
 	queryId := *output.Id
-	handler.logger.Info("completed execute statement call", zap.String("queryId", queryId))
+	handler.logger.Info("completed execute statement call",
+		zap.String("queryId", queryId))
 	return queryId, nil
 }
 
@@ -178,18 +182,20 @@ func (handler *redshiftDataApiQueryHandler) waitForQueryToFinish(ctx context.Con
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId))
 			return result, nil
 		case types.StatusStringAborted:
+			err := fmt.Errorf(*result.Error)
 			handler.logger.Error("query aborted",
 				zap.String("queryId", queryId),
-				zap.Error(fmt.Errorf(*result.Error)),
+				zap.Error(err),
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId))
-			return nil, fmt.Errorf("query aborted")
+			return nil, fmt.Errorf("query aborted: %w", err)
 		case types.StatusStringFailed:
+			err := fmt.Errorf(*result.Error)
 			handler.logger.Error("query failed",
 				zap.String("queryId", queryId),
-				zap.Error(fmt.Errorf(*result.Error)),
+				zap.Error(err),
 				zap.Int64("redshiftQueryId", result.RedshiftQueryId),
 				zap.String("query", *result.QueryString))
-			return nil, fmt.Errorf("query failed")
+			return nil, fmt.Errorf("query failed: %w", err)
 		default:
 			handler.logger.Debug("query status", zap.String("queryStatus", string(result.Status)))
 		}
