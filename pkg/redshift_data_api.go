@@ -88,7 +88,8 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 		if err != nil {
 			handler.logger.Error("error while writing column definition in result set",
 				zap.String("queryId", queryId),
-				zap.Error(err), zap.Any("columnMetadata", result.ColumnMetadata))
+				zap.Error(err),
+				zap.Any("columnMetadata", result.ColumnMetadata))
 			return err
 		}
 		for _, recordRow := range result.Records {
@@ -113,7 +114,8 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 			if err != nil {
 				handler.logger.Error("error while writing row in result set",
 					zap.String("queryId", queryId),
-					zap.Error(err), zap.Any("recordRow", recordRow))
+					zap.Error(err),
+					zap.Any("recordRow", recordRow))
 				return err
 			}
 		}
@@ -137,6 +139,7 @@ func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresT
 	}
 	value, exists := typeConversions[redshiftTypeName]
 	if !exists {
+		handler.logger.Error("no convertor found for redshift type", zap.String("redshiftTypeName", redshiftTypeName))
 		return 0, fmt.Errorf("no convertor found redshiftTypeName=%v", redshiftTypeName)
 	}
 	return value, nil
@@ -154,10 +157,13 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 		WorkgroupName:     handler.redshiftDataAPIConfig.WorkgroupName,
 	})
 	if err != nil {
+		handler.logger.Error("error while performing execute statement operation",
+			zap.Error(err))
 		return "", err
 	}
 	queryId := *output.Id
-	handler.logger.Info("completed execute statement call", zap.String("queryId", queryId))
+	handler.logger.Info("completed execute statement call",
+		zap.String("queryId", queryId))
 	return queryId, nil
 }
 
