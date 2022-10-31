@@ -162,7 +162,7 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 		return "", err
 	}
 	queryId := *output.Id
-	handler.logger.Info("completed execute statement call",
+	handler.logger.Info("submitted query to redshift data api",
 		zap.String("queryId", queryId))
 	return queryId, nil
 }
