@@ -78,6 +78,7 @@ func constructLogger() *zap.Logger {
 	productionConfig.EncoderConfig.TimeKey = "timestamp"
 	productionConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	productionConfig.Level = zap.NewAtomicLevelAt(logLevel())
+	productionConfig.DisableStacktrace = true
 	logger, _ := productionConfig.Build()
 	return logger
 }
