@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/redshiftdata v1.16.13
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jeroenrinzema/psql-wire v0.4.0
+	github.com/lib/pq v1.10.7
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.23.0
@@ -33,7 +34,6 @@ require (
 	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
-	github.com/lib/pq v1.10.7 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
