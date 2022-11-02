@@ -43,6 +43,7 @@ type RedshiftDataAPIQueryHandler interface {
 	QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error
 }
 
+//go:generate mockgen -destination mocks/mock_redshift_data_api_client.go -package mocks . RedshiftDataApiClient
 type RedshiftDataApiClient interface {
 	ExecuteStatement(ctx context.Context, params *redshiftdata.ExecuteStatementInput, optFns ...func(*redshiftdata.Options)) (*redshiftdata.ExecuteStatementOutput, error)
 	DescribeStatement(ctx context.Context, params *redshiftdata.DescribeStatementInput, optFns ...func(*redshiftdata.Options)) (*redshiftdata.DescribeStatementOutput, error)
@@ -63,6 +64,7 @@ func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient,
 	}
 }
 
+//go:generate mockgen -destination mocks/mock_wire_data_writer.go -package mocks github.com/jeroenrinzema/psql-wire DataWriter
 func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
 	loggerWithContext := handler.logger.With(
 		zap.String("rdappCorrelationId", uuid.NewString()),

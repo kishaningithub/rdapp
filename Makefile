@@ -1,7 +1,7 @@
 unit-test:
 	go test -race -v ./...
 
-test: unit-test
+test: generate-sources unit-test
 
 build: download-deps tidy-deps fmt test compile
 
@@ -20,3 +20,6 @@ update-deps:
 
 compile:
 	go build -v ./...
+
+generate-sources:
+	go generate -v ./...
