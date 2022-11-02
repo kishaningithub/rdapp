@@ -101,6 +101,7 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 		if err != nil {
 			return err
 		}
+		loggerWithContext.Info("completed writing result into the wire")
 	}
 	return writer.Complete("OK")
 }
@@ -149,7 +150,7 @@ func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftda
 				zap.Error(err),
 				zap.Any("recordRow", recordRow),
 				zap.Any("columnMetadata", result.ColumnMetadata))
-			return err
+			return fmt.Errorf("error while writing row in result set: %w", err)
 		}
 	}
 	return nil
@@ -208,7 +209,7 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 	if err != nil {
 		loggerWithContext.Error("error while performing execute statement operation",
 			zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("error while performing execute statement operation: %w", err)
 	}
 	queryId := *output.Id
 	return queryId, nil
@@ -220,7 +221,9 @@ func (handler *redshiftDataApiQueryHandler) waitForQueryToFinish(ctx context.Con
 			Id: aws.String(queryId),
 		})
 		if err != nil {
-			return nil, err
+			loggerWithContext.Error("error while performing describe statement operation",
+				zap.Error(err))
+			return nil, fmt.Errorf("error while performing describe statement operation: %w", err)
 		}
 		switch result.Status {
 		case types.StatusStringFinished:
