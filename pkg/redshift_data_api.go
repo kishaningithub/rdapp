@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata/types"
+	"github.com/google/uuid"
 	wire "github.com/jeroenrinzema/psql-wire"
 	"github.com/lib/pq/oid"
 	"go.uber.org/zap"
@@ -64,10 +65,11 @@ func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient,
 
 func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
 	loggerWithContext := handler.logger.With(
-		zap.String("query", query),
-		zap.Strings("queryParameters", parameters),
+		zap.String("rdappCorrelationId", uuid.NewString()),
 	)
-	loggerWithContext.Info("received query")
+	loggerWithContext.Info("received query",
+		zap.String("query", query),
+		zap.Strings("queryParameters", parameters))
 	queryId, err := handler.executeStatement(ctx, query, parameters, loggerWithContext)
 	if err != nil {
 		return err
