@@ -158,27 +158,45 @@ func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftda
 	return nil
 }
 
+const (
+	RedshiftTypeSuper       = "super"
+	RedshiftTypeBool        = "bool"
+	RedshiftTypeChar        = "char"
+	RedshiftTypeVarchar     = "varchar"
+	RedshiftTypeBpchar      = "bpchar"
+	RedshiftTypeTimestamp   = "timestamp"
+	RedshiftTypeTimestamptz = "timestamptz"
+	RedshiftTypeFloat4      = "float4"
+	RedshiftTypeFloat8      = "float8"
+	RedshiftTypeInt2        = "int2"
+	RedshiftTypeInt4        = "int4"
+	RedshiftTypeInt8        = "int8"
+	RedshiftTypeName        = "name"
+	RedshiftTypeOid         = "oid"
+	RedshiftTypeAclitem     = "_aclitem"
+)
+
 func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresType(redshiftTypeName string, loggerWithContext *zap.Logger) (oid.Oid, error) {
 	typeConversions := map[string]oid.Oid{
-		"super": oid.T_json,
-		"bool":  oid.T_bool,
+		RedshiftTypeSuper: oid.T_json,
+		RedshiftTypeBool:  oid.T_bool,
 		// Character types
-		"char":    oid.T_varchar,
-		"varchar": oid.T_varchar,
-		"bpchar":  oid.T_bpchar,
+		RedshiftTypeChar:    oid.T_varchar,
+		RedshiftTypeVarchar: oid.T_varchar,
+		RedshiftTypeBpchar:  oid.T_bpchar,
 		// Timestamp types
-		"timestamp":   oid.T_timestamp,
-		"timestamptz": oid.T_timestamptz,
+		RedshiftTypeTimestamp:   oid.T_timestamp,
+		RedshiftTypeTimestamptz: oid.T_timestamptz,
 		// Numeric types
-		"float4": oid.T_float4,
-		"float8": oid.T_float8,
-		"int2":   oid.T_int2,
-		"int4":   oid.T_int4,
-		"int8":   oid.T_int8,
+		RedshiftTypeFloat4: oid.T_float4,
+		RedshiftTypeFloat8: oid.T_float8,
+		RedshiftTypeInt2:   oid.T_int2,
+		RedshiftTypeInt4:   oid.T_int4,
+		RedshiftTypeInt8:   oid.T_int8,
 		//	Esoteric types
-		"name":     oid.T_name,
-		"oid":      oid.T_oid,
-		"_aclitem": oid.T_aclitem,
+		RedshiftTypeName:    oid.T_name,
+		RedshiftTypeOid:     oid.T_oid,
+		RedshiftTypeAclitem: oid.T_aclitem,
 	}
 	value, exists := typeConversions[redshiftTypeName]
 	if !exists {
