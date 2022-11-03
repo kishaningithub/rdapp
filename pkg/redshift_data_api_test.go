@@ -22,7 +22,7 @@ type RedshiftQueryHandlerTestSuite struct {
 	suite.Suite
 	mockController            *gomock.Controller
 	mockRedshiftDataApiClient *mocks.MockRedshiftDataApiClient
-	observedLogs              *observer.ObservedLogs
+	logs                      *observer.ObservedLogs
 	config                    rdapp.RedshiftDataAPIConfig
 	queryHandler              rdapp.RedshiftDataAPIQueryHandler
 }
@@ -34,8 +34,8 @@ func TestRedshiftQueryHandlerTestSuite(t *testing.T) {
 func (suite *RedshiftQueryHandlerTestSuite) SetupTest() {
 	suite.mockController = gomock.NewController(suite.T())
 	suite.mockRedshiftDataApiClient = mocks.NewMockRedshiftDataApiClient(suite.mockController)
-	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
-	suite.observedLogs = observedLogs
+	zapCore, logs := observer.New(zap.DebugLevel)
+	suite.logs = logs
 	suite.config = rdapp.RedshiftDataAPIConfig{
 		Database:          aws.String("database"),
 		ClusterIdentifier: aws.String("clusterIdentifier"),
@@ -44,7 +44,7 @@ func (suite *RedshiftQueryHandlerTestSuite) SetupTest() {
 		WorkgroupName:     aws.String("workgroupName"),
 	}
 
-	suite.queryHandler = rdapp.NewRedshiftDataApiQueryHandler(suite.mockRedshiftDataApiClient, &suite.config, zap.New(observedZapCore))
+	suite.queryHandler = rdapp.NewRedshiftDataApiQueryHandler(suite.mockRedshiftDataApiClient, &suite.config, zap.New(zapCore))
 }
 
 func (suite *RedshiftQueryHandlerTestSuite) TearDownTest() {
@@ -60,7 +60,7 @@ func (suite *RedshiftQueryHandlerTestSuite) TestQueryHandler_ShouldLogAndFailWhe
 	actualErr := suite.queryHandler.QueryHandler(ctx, "queryString", mockDataWriter, nil)
 
 	suite.Require().EqualError(actualErr, "error while performing execute statement operation: call failed")
-	loggedEntries := suite.observedLogs.FilterLevelExact(zap.ErrorLevel).TakeAll()
+	loggedEntries := suite.logs.FilterLevelExact(zap.ErrorLevel).TakeAll()
 	suite.Require().Len(loggedEntries, 1)
 	suite.Require().Equal(zap.ErrorLevel, loggedEntries[0].Level)
 	suite.Require().Equal("error while performing execute statement operation", loggedEntries[0].Message)

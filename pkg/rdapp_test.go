@@ -5,47 +5,52 @@ import (
 	"github.com/jackc/pgx/v4"
 	wire "github.com/jeroenrinzema/psql-wire"
 	rdapp "github.com/kishaningithub/rdapp/pkg"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"testing"
 )
 
-func TestRedshiftDataAPIProxy(t *testing.T) {
+var (
+	_ suite.SetupAllSuite    = (*RedshiftDataAPIProxyTestSuite)(nil)
+	_ suite.TearDownAllSuite = (*RedshiftDataAPIProxyTestSuite)(nil)
+)
+
+type RedshiftDataAPIProxyTestSuite struct {
+	suite.Suite
+	conn *pgx.Conn
+}
+
+func TestRedshiftDataAPIProxyTestSuite(t *testing.T) {
+	suite.Run(t, new(RedshiftDataAPIProxyTestSuite))
+}
+
+func (suite *RedshiftDataAPIProxyTestSuite) SetupSuite() {
 	listenAddress := "localhost:25432"
-	logger := constructLogger(t)
+	logger := zap.NewExample()
 	go func() {
 		logger.Info("Starting test instance of postgres redshift proxy...")
 		err := rdapp.NewPostgresRedshiftDataAPIProxy(listenAddress, func(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
 			return writer.Complete("OK")
 		}, logger).Run()
-		require.NoError(t, err)
+		suite.Require().NoError(err)
 	}()
 	databaseUrl := "postgres://postgres:mypassword@localhost:25432/postgres"
 	conn, err := pgx.Connect(context.Background(), databaseUrl)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, conn.Close(context.Background()))
-	})
-
-	t.Run("test connectivity", func(t *testing.T) {
-		connInfo := conn.Config()
-		require.Equal(t, "localhost", connInfo.Host)
-	})
-
-	t.Run("test query execution", func(t *testing.T) {
-		rows, err := conn.Query(context.Background(), "select name, weight from widgets limit 1")
-		require.NoError(t, err)
-		require.NoError(t, rows.Err())
-	})
+	suite.Require().NoError(err)
+	suite.conn = conn
 }
 
-func constructLogger(t *testing.T) *zap.Logger {
-	t.Helper()
-	productionConfig := zap.NewProductionConfig()
-	productionConfig.EncoderConfig.TimeKey = "timestamp"
-	productionConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
-	productionConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	logger, _ := productionConfig.Build()
-	return logger
+func (suite *RedshiftDataAPIProxyTestSuite) TearDownSuite() {
+	_ = suite.conn.Close(context.Background())
+}
+
+func (suite *RedshiftDataAPIProxyTestSuite) TestConnectivity() {
+	connInfo := suite.conn.Config()
+	suite.Require().Equal("localhost", connInfo.Host)
+}
+
+func (suite *RedshiftDataAPIProxyTestSuite) TestQueryExecution() {
+	rows, err := suite.conn.Query(context.Background(), "select name, weight from widgets limit 1")
+	suite.Require().NoError(err)
+	suite.Require().NoError(rows.Err())
 }
