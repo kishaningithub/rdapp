@@ -27,5 +27,5 @@ install-binary-dependencies:
 generate-sources: install-binary-dependencies
 	go generate -v ./...
 
-lint: install-binary-dependencies
+lint: fmt install-binary-dependencies
 	golangci-lint run

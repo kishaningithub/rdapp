@@ -45,7 +45,9 @@ func main() {
 
 func runRootCommand(_ *cobra.Command, _ []string) error {
 	logger := constructLogger()
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		_ = logger.Sync()
+	}(logger)
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return fmt.Errorf("error while loading aws config: %w", err)
