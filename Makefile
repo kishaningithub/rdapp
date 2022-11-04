@@ -3,7 +3,7 @@ unit-test:
 
 test: generate-sources unit-test
 
-build: download-deps tidy-deps fmt test compile
+build: download-deps tidy-deps fmt test lint compile
 
 fmt: ## Run the code formatter
 	gofmt -l -s -w .
@@ -21,6 +21,11 @@ update-deps:
 compile:
 	go build -v ./...
 
-generate-sources:
-	go install -tags=tools -v ./...
+install-binary-dependencies:
+	go list -tags=tools -f '{{ join .Imports "\n" }}' ./tools | xargs go install -v
+
+generate-sources: install-binary-dependencies
 	go generate -v ./...
+
+lint: install-binary-dependencies
+	golangci-lint run
