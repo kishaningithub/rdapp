@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jeroenrinzema/psql-wire v0.4.0
 	github.com/lib/pq v1.10.7
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.23.0
 )
