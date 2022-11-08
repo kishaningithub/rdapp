@@ -52,11 +52,11 @@ type RedshiftDataApiClient interface {
 
 type redshiftDataApiQueryHandler struct {
 	logger                *zap.Logger
-	redshiftDataAPIConfig *RedshiftDataAPIConfig
+	redshiftDataAPIConfig RedshiftDataAPIConfig
 	redshiftDataApiClient RedshiftDataApiClient
 }
 
-func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient, redshiftDataAPIConfig *RedshiftDataAPIConfig, logger *zap.Logger) RedshiftDataAPIQueryHandler {
+func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient, redshiftDataAPIConfig RedshiftDataAPIConfig, logger *zap.Logger) RedshiftDataAPIQueryHandler {
 	return &redshiftDataApiQueryHandler{
 		logger:                logger,
 		redshiftDataAPIConfig: redshiftDataAPIConfig,

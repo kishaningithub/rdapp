@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
+	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	"github.com/kishaningithub/rdapp/pkg"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"strings"
 )
 
 var Version string
@@ -48,17 +51,26 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 	defer func(logger *zap.Logger) {
 		_ = logger.Sync()
 	}(logger)
-	cfg, err := config.LoadDefaultConfig(context.Background())
+	rootContext := context.Background()
+	cfg, err := config.LoadDefaultConfig(rootContext)
 	if err != nil {
 		return fmt.Errorf("error while loading aws config: %w", err)
 	}
+	redshiftClient := redshift.NewFromConfig(cfg)
 	redshiftDataApiClient := redshiftdata.NewFromConfig(cfg)
-	redshiftDataApiConfig := &rdapp.RedshiftDataAPIConfig{
+	redshiftServerlessClient := redshiftserverless.NewFromConfig(cfg)
+	redshiftDataApiConfig := rdapp.RedshiftDataAPIConfig{
 		Database:          getFlagValue(database),
 		ClusterIdentifier: getFlagValue(clusterIdentifier),
 		DbUser:            getFlagValue(dbUser),
 		SecretArn:         getFlagValue(secretArn),
 		WorkgroupName:     getFlagValue(workgroupName),
+	}
+	if redshiftDataApiConfig.Database == nil {
+		redshiftDataApiConfig, err = getConfigFromInteractiveMode(rootContext, redshiftClient, redshiftServerlessClient, redshiftDataApiClient)
+		if err != nil {
+			return err
+		}
 	}
 	redshiftDataApiQueryHandler := rdapp.NewRedshiftDataApiQueryHandler(redshiftDataApiClient, redshiftDataApiConfig, logger)
 	err = rdapp.NewPostgresRedshiftDataAPIProxy(listenAddress, redshiftDataApiQueryHandler.QueryHandler, logger).Run()
@@ -72,6 +84,7 @@ func getFlagValue(value string) *string {
 	if value == "" {
 		return nil
 	}
+	value = strings.TrimSpace(value)
 	return &value
 }
 
