@@ -48,7 +48,7 @@ func (suite *RedshiftQueryHandlerTestSuite) SetupTest() {
 		WorkgroupName:     aws.String("workgroupName"),
 	}
 
-	suite.queryHandler = rdapp.NewRedshiftDataApiQueryHandler(suite.mockRedshiftDataApiClient, &suite.config, zap.New(zapCore))
+	suite.queryHandler = rdapp.NewRedshiftDataApiQueryHandler(suite.mockRedshiftDataApiClient, suite.config, zap.New(zapCore))
 }
 
 func (suite *RedshiftQueryHandlerTestSuite) TearDownTest() {

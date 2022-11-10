@@ -41,18 +41,20 @@ Head over to the [releases page](https://github.com/kishaningithub/rdapp/release
 
 - Ensure aws credentials are setup in your env. Refer [aws cli configuration guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
   for more info.
-- For proxying redshift serverless run command
-
+- **Interactive mode** - This loads an interactive view where you can pick and choose clusters to connect to
+  - This mode requires permissions to list provisioned clusters, work groups, namespaces and secrets (we do not read secret values, only requires list permission to choose secret ARN).
+```bash
+$ rdapp --listen "127.0.0.1:15432"
+```
+- **Normal Mode** - Here you specify redshift connection config as cli args
+  - For proxying redshift serverless run command
 ```bash
 $ rdapp --listen "127.0.0.1:15432" --database "<<db name>>" --workgroup-name "<<work group name>>" --secret-arn "<<secret arn>>"
 ```
-
-- For proxying redshift provisioned run command
-
+  - For proxying redshift provisioned run command
 ```bash
 $ rdapp --listen "127.0.0.1:15432" --db-user <<db user>> --cluster-identifier "<<cluster identifier>>" --database "<<db name>>"
 ```
-
 - If you notice above other than `--listen` which is the address rdapp listens to all other parameters are exactly the same
   as [aws cli's execute statement command](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/redshift-data/execute-statement.html)
   this is intentional and will be maintained that way in the future. This also helps people who are currently using the cli
