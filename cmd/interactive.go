@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	secretmanagertypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/kishaningithub/rdapp/pkg"
-	"go.uber.org/zap"
 )
 
 type ConfigInstance struct {
@@ -56,16 +55,14 @@ type interactionService struct {
 	redshiftClient           rdapp.RedshiftClient
 	redshiftServerlessClient rdapp.RedshiftServerlessClient
 	secretsManagerClient     rdapp.SecretsManagerClient
-	logger                   *zap.Logger
 }
 
 func NewInteractionService(redshiftClient rdapp.RedshiftClient, redshiftServerlessClient rdapp.RedshiftServerlessClient,
-	secretsManagerClient rdapp.SecretsManagerClient, logger *zap.Logger) InteractionService {
+	secretsManagerClient rdapp.SecretsManagerClient) InteractionService {
 	return &interactionService{
 		redshiftClient:           redshiftClient,
 		redshiftServerlessClient: redshiftServerlessClient,
 		secretsManagerClient:     secretsManagerClient,
-		logger:                   logger,
 	}
 }
 
@@ -106,16 +103,17 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 
 func (service *interactionService) selectInstance(instances configInstances) (ConfigInstance, error) {
 	var selectedInstanceName string
+	errMsg := "error while selecting config instance"
 	err := survey.AskOne(&survey.Select{
 		Message: "Which instance you want to connect to?",
 		Options: instances.getInstanceNames(),
 	}, &selectedInstanceName)
 	if err != nil {
-		return ConfigInstance{}, err
+		return ConfigInstance{}, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	selectedInstance, err := instances.getInstanceByName(selectedInstanceName)
 	if err != nil {
-		return ConfigInstance{}, err
+		return ConfigInstance{}, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return selectedInstance, nil
 }
@@ -150,7 +148,6 @@ func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, e
 		}
 		secrets = append(secrets, listSecretsOutput.SecretList...)
 	}
-	service.logger.Debug("completed fetching secrets from secrets manager", zap.Int("noOfSecrets", len(secrets)))
 	return secrets, nil
 }
 
@@ -195,19 +192,18 @@ func (service *interactionService) fetchProvisionedClusters(ctx context.Context)
 
 func (service *interactionService) computeConfigInstances(provisionedClusters []types.Cluster, serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
 	var instances configInstances
-	for _, cluster := range provisionedClusters {
-		if *cluster.ClusterStatus != "available" {
-			continue
-		}
-		instances = append(instances, ConfigInstance{
-			instanceName: *cluster.ClusterIdentifier,
-			instanceDetails: rdapp.RedshiftDataAPIConfig{
-				Database:          cluster.DBName,
-				ClusterIdentifier: cluster.ClusterIdentifier,
-				DbUser:            cluster.MasterUsername,
-			},
-		})
+	provisionedClusterInstances := service.getProvisionedClusterInstances(provisionedClusters)
+	serverlessClusterInstances, err := service.getServerlessInstances(serverlessWorkgroups, serverlessNamespaces)
+	if err != nil {
+		return instances, err
 	}
+	instances = append(instances, provisionedClusterInstances...)
+	instances = append(instances, serverlessClusterInstances...)
+	return instances, nil
+}
+
+func (service *interactionService) getServerlessInstances(serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
+	var instances configInstances
 	for _, workgroup := range serverlessWorkgroups {
 		if workgroup.Status != redshiftserverlesstypes.WorkgroupStatusAvailable {
 			continue
@@ -225,6 +221,24 @@ func (service *interactionService) computeConfigInstances(provisionedClusters []
 		})
 	}
 	return instances, nil
+}
+
+func (service *interactionService) getProvisionedClusterInstances(provisionedClusters []types.Cluster) configInstances {
+	var instances configInstances
+	for _, cluster := range provisionedClusters {
+		if *cluster.ClusterStatus != "available" {
+			continue
+		}
+		instances = append(instances, ConfigInstance{
+			instanceName: *cluster.ClusterIdentifier,
+			instanceDetails: rdapp.RedshiftDataAPIConfig{
+				Database:          cluster.DBName,
+				ClusterIdentifier: cluster.ClusterIdentifier,
+				DbUser:            cluster.MasterUsername,
+			},
+		})
+	}
+	return instances
 }
 
 func (service *interactionService) findNameSpaceForWorkGroup(workgroup redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (redshiftserverlesstypes.Namespace, error) {
