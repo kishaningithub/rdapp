@@ -72,19 +72,7 @@ func NewInteractionService(redshiftClient *redshift.Client, redshiftServerlessCl
 }
 
 func (service *interactionService) Interact(ctx context.Context) (rdapp.RedshiftDataAPIConfig, error) {
-	provisionedClusters, err := service.fetchProvisionedClusters(ctx)
-	if err != nil {
-		return rdapp.RedshiftDataAPIConfig{}, err
-	}
-	serverlessNamespaces, err := service.fetchServerlessNamespaces(ctx)
-	if err != nil {
-		return rdapp.RedshiftDataAPIConfig{}, err
-	}
-	workgroups, err := service.fetchServerlessWorkGroups(ctx)
-	if err != nil {
-		return rdapp.RedshiftDataAPIConfig{}, err
-	}
-	instances, err := service.generateConfigInstances(provisionedClusters, workgroups, serverlessNamespaces)
+	instances, err := service.loadConfigInstances(ctx)
 	if err != nil {
 		return rdapp.RedshiftDataAPIConfig{}, err
 	}
@@ -121,8 +109,29 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 			return rdapp.RedshiftDataAPIConfig{}, err
 		}
 		selectedInstance.instanceDetails.SecretArn = &selectedSecretArn
+		selectedInstance.instanceDetails.DbUser = nil
 	}
 	return selectedInstance.instanceDetails, nil
+}
+
+func (service *interactionService) loadConfigInstances(ctx context.Context) (configInstances, error) {
+	provisionedClusters, err := service.fetchProvisionedClusters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	serverlessNamespaces, err := service.fetchServerlessNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	workgroups, err := service.fetchServerlessWorkGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := service.computeConfigInstances(provisionedClusters, workgroups, serverlessNamespaces)
+	if err != nil {
+		return nil, err
+	}
+	return instances, nil
 }
 
 func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, error) {
@@ -178,7 +187,7 @@ func (service *interactionService) fetchProvisionedClusters(ctx context.Context)
 	return clusters, nil
 }
 
-func (service *interactionService) generateConfigInstances(provisionedClusters []types.Cluster, serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
+func (service *interactionService) computeConfigInstances(provisionedClusters []types.Cluster, serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
 	var instances configInstances
 	for _, cluster := range provisionedClusters {
 		if *cluster.ClusterStatus != "available" {
