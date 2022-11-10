@@ -66,6 +66,7 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 		WorkgroupName:     getFlagValue(workgroupName),
 	}
 	if redshiftDataApiConfig.Database == nil {
+		fmt.Println("Loading interactive config setup view...")
 		redshiftClient := redshift.NewFromConfig(cfg)
 		redshiftServerlessClient := redshiftserverless.NewFromConfig(cfg)
 		secretsManagerClient := secretsmanager.NewFromConfig(cfg)
