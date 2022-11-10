@@ -3,110 +3,222 @@ package main
 import (
 	"context"
 	"fmt"
+	survey "github.com/AlecAivazis/survey/v2"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/aws/aws-sdk-go-v2/service/redshift/types"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	redshiftserverlesstypes "github.com/aws/aws-sdk-go-v2/service/redshiftserverless/types"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	secretmanagertypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	rdapp "github.com/kishaningithub/rdapp/pkg"
-	"strings"
+	"go.uber.org/zap"
 )
 
-type errMsg struct{ err error }
-
-func NewErrMsg(err error) error {
-	return errMsg{
-		err: err,
-	}
+type ConfigInstance struct {
+	instanceName    string
+	instanceDetails rdapp.RedshiftDataAPIConfig
 }
 
-func (e errMsg) Error() string { return e.err.Error() }
+type configInstances []ConfigInstance
 
-var _ tea.Model = InteractionModel{}
+func (instances configInstances) getInstanceNames() []string {
+	var instanceNames []string
+	for _, instance := range instances {
+		instanceNames = append(instanceNames, instance.instanceName)
+	}
+	return instanceNames
+}
 
-type InteractionModel struct {
+func (instances configInstances) getInstanceByName(instanceName string) (ConfigInstance, error) {
+	for _, instance := range instances {
+		if instance.instanceName == instanceName {
+			return instance, nil
+		}
+	}
+	return ConfigInstance{}, fmt.Errorf("configuration instance is not found instanceName=%s", instanceName)
+}
+
+type Secrets []secretmanagertypes.SecretListEntry
+
+func (secrets Secrets) getSecretArns() []string {
+	var secretArns []string
+	for _, secret := range secrets {
+		secretArns = append(secretArns, *secret.ARN)
+	}
+	return secretArns
+}
+
+type InteractionService interface {
+	Interact(ctx context.Context) (rdapp.RedshiftDataAPIConfig, error)
+}
+
+type interactionService struct {
 	redshiftClient           *redshift.Client
 	redshiftServerlessClient *redshiftserverless.Client
-	provisionedClusters      []types.Cluster
-	serverlessWorkgroups     []redshiftserverlesstypes.Workgroup
 	redshiftDataApiClient    *redshiftdata.Client
-	redshiftDataApiConfig    rdapp.RedshiftDataAPIConfig
-	ctx                      context.Context
-	err                      error
+	secretsManagerClient     *secretsmanager.Client
+	logger                   *zap.Logger
 }
 
-func NewInteractionModel(ctx context.Context, redshiftClient *redshift.Client, redshiftServerlessClient *redshiftserverless.Client, redshiftDataApiClient *redshiftdata.Client) InteractionModel {
-	return InteractionModel{
-		ctx:                      ctx,
+func NewInteractionService(redshiftClient *redshift.Client, redshiftServerlessClient *redshiftserverless.Client, redshiftDataApiClient *redshiftdata.Client, secretsManagerClient *secretsmanager.Client, logger *zap.Logger) InteractionService {
+	return &interactionService{
 		redshiftClient:           redshiftClient,
 		redshiftServerlessClient: redshiftServerlessClient,
 		redshiftDataApiClient:    redshiftDataApiClient,
+		secretsManagerClient:     secretsManagerClient,
+		logger:                   logger,
 	}
 }
 
-func (interactionModel InteractionModel) Init() tea.Cmd {
-	return func() tea.Msg {
-		describeClustersPaginator := redshift.NewDescribeClustersPaginator(interactionModel.redshiftClient, nil)
-		for describeClustersPaginator.HasMorePages() {
-			page, err := describeClustersPaginator.NextPage(interactionModel.ctx)
-			if err != nil {
-				return NewErrMsg(err)
-			}
-			interactionModel.provisionedClusters = append(interactionModel.provisionedClusters, page.Clusters...)
-		}
-		listWorkgroupsPaginator := redshiftserverless.NewListWorkgroupsPaginator(interactionModel.redshiftServerlessClient, nil)
-		for listWorkgroupsPaginator.HasMorePages() {
-			page, err := listWorkgroupsPaginator.NextPage(interactionModel.ctx)
-			if err != nil {
-				return NewErrMsg(err)
-			}
-			interactionModel.serverlessWorkgroups = append(interactionModel.serverlessWorkgroups, page.Workgroups...)
-		}
-		return interactionModel
-	}
-}
-
-func (interactionModel InteractionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
-			return interactionModel, tea.Quit
-		}
-		if msg.Type == tea.KeyUp {
-
-		}
-	case errMsg:
-		interactionModel.err = msg
-		return interactionModel, tea.Quit
-	case InteractionModel:
-		return msg, nil
-	}
-
-	return interactionModel, nil
-}
-
-func (interactionModel InteractionModel) View() string {
-	var view string
-	view += fmt.Sprintln("Select redshift instance...")
-	for _, cluster := range interactionModel.provisionedClusters {
-		view += fmt.Sprintf("cluster %s | provisioned | %s\n", *cluster.ClusterIdentifier, *cluster.ClusterStatus)
-	}
-	for _, workgroup := range interactionModel.serverlessWorkgroups {
-		view += fmt.Sprintf("%s | serverless | %s\n", *workgroup.WorkgroupName, strings.ToLower(string(workgroup.Status)))
-	}
-	return view
-}
-
-func getConfigFromInteractiveMode(ctx context.Context, redshiftClient *redshift.Client, redshiftServerlessClient *redshiftserverless.Client, redshiftDataApiClient *redshiftdata.Client) (rdapp.RedshiftDataAPIConfig, error) {
-	program := tea.NewProgram(NewInteractionModel(ctx, redshiftClient, redshiftServerlessClient, redshiftDataApiClient))
-	model, err := program.StartReturningModel()
+func (service *interactionService) Interact(ctx context.Context) (rdapp.RedshiftDataAPIConfig, error) {
+	provisionedClusters, err := service.fetchProvisionedClusters(ctx)
 	if err != nil {
 		return rdapp.RedshiftDataAPIConfig{}, err
 	}
-	switch typedModel := model.(type) {
-	case InteractionModel:
-		return typedModel.redshiftDataApiConfig, nil
+	serverlessNamespaces, err := service.fetchServerlessNamespaces(ctx)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
 	}
-	return rdapp.RedshiftDataAPIConfig{}, fmt.Errorf("invalid model type %+v", model)
+	workgroups, err := service.fetchServerlessWorkGroups(ctx)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	instances, err := service.generateConfigInstances(provisionedClusters, workgroups, serverlessNamespaces)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	var selectedInstanceName string
+	err = survey.AskOne(&survey.Select{
+		Message: "Which instance you want to connect to?",
+		Options: instances.getInstanceNames(),
+	}, &selectedInstanceName)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	selectedInstance, err := instances.getInstanceByName(selectedInstanceName)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	var useSecretManager bool
+	err = survey.AskOne(&survey.Confirm{
+		Message: "Would you like to choose a secret for connecting?",
+	}, &useSecretManager)
+	if err != nil {
+		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	if useSecretManager {
+		secrets, err := service.fetchSecrets(ctx)
+		if err != nil {
+			return rdapp.RedshiftDataAPIConfig{}, err
+		}
+		var selectedSecretArn string
+		err = survey.AskOne(&survey.Select{
+			Message: "Choose the secret",
+			Options: secrets.getSecretArns(),
+		}, &selectedSecretArn)
+		if err != nil {
+			return rdapp.RedshiftDataAPIConfig{}, err
+		}
+		selectedInstance.instanceDetails.SecretArn = &selectedSecretArn
+	}
+	return selectedInstance.instanceDetails, nil
+}
+
+func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, error) {
+	var secrets Secrets
+	secretsPaginator := secretsmanager.NewListSecretsPaginator(service.secretsManagerClient, nil)
+	if secretsPaginator.HasMorePages() {
+		listSecretsOutput, err := secretsPaginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		secrets = append(secrets, listSecretsOutput.SecretList...)
+	}
+	service.logger.Debug("secrets fetched from secrets manager", zap.Int("noOfSecrets", len(secrets)))
+	return secrets, nil
+}
+
+func (service *interactionService) fetchServerlessWorkGroups(ctx context.Context) ([]redshiftserverlesstypes.Workgroup, error) {
+	var serverlessWorkgroups []redshiftserverlesstypes.Workgroup
+	listWorkgroupsPaginator := redshiftserverless.NewListWorkgroupsPaginator(service.redshiftServerlessClient, nil)
+	for listWorkgroupsPaginator.HasMorePages() {
+		page, err := listWorkgroupsPaginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error while loading serverless workgroups: %w", err)
+		}
+		serverlessWorkgroups = append(serverlessWorkgroups, page.Workgroups...)
+	}
+	return serverlessWorkgroups, nil
+}
+
+func (service *interactionService) fetchServerlessNamespaces(ctx context.Context) ([]redshiftserverlesstypes.Namespace, error) {
+	var serverlessNamespaces []redshiftserverlesstypes.Namespace
+	listNamespacesPaginator := redshiftserverless.NewListNamespacesPaginator(service.redshiftServerlessClient, nil)
+	for listNamespacesPaginator.HasMorePages() {
+		page, err := listNamespacesPaginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error while loading redshift serverless namespaces: %w", err)
+		}
+		serverlessNamespaces = append(serverlessNamespaces, page.Namespaces...)
+	}
+	return serverlessNamespaces, nil
+}
+
+func (service *interactionService) fetchProvisionedClusters(ctx context.Context) ([]types.Cluster, error) {
+	var clusters []types.Cluster
+	describeClustersPaginator := redshift.NewDescribeClustersPaginator(service.redshiftClient, nil)
+	for describeClustersPaginator.HasMorePages() {
+		page, err := describeClustersPaginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error while loading provisioned clusters: %w", err)
+		}
+		clusters = append(clusters, page.Clusters...)
+	}
+	return clusters, nil
+}
+
+func (service *interactionService) generateConfigInstances(provisionedClusters []types.Cluster, serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
+	var instances configInstances
+	for _, cluster := range provisionedClusters {
+		if *cluster.ClusterStatus != "available" {
+			continue
+		}
+		instances = append(instances, ConfigInstance{
+			instanceName: *cluster.ClusterIdentifier,
+			instanceDetails: rdapp.RedshiftDataAPIConfig{
+				Database:          cluster.DBName,
+				ClusterIdentifier: cluster.ClusterIdentifier,
+				DbUser:            cluster.MasterUsername,
+			},
+		})
+	}
+	for _, workgroup := range serverlessWorkgroups {
+		if workgroup.Status != redshiftserverlesstypes.WorkgroupStatusAvailable {
+			continue
+		}
+		namespace, err := service.findNameSpaceForWorkGroup(workgroup, serverlessNamespaces)
+		if err != nil {
+			return nil, err
+		}
+		instances = append(instances, ConfigInstance{
+			instanceName: *workgroup.WorkgroupName,
+			instanceDetails: rdapp.RedshiftDataAPIConfig{
+				Database:      namespace.DbName,
+				WorkgroupName: workgroup.WorkgroupName,
+			},
+		})
+	}
+	return instances, nil
+}
+
+func (service *interactionService) findNameSpaceForWorkGroup(workgroup redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (redshiftserverlesstypes.Namespace, error) {
+	var namespaces []string
+	for _, namespace := range serverlessNamespaces {
+		if *namespace.NamespaceName == *workgroup.NamespaceName {
+			return namespace, nil
+		}
+		namespaces = append(namespaces, *namespace.NamespaceName)
+	}
+	return redshiftserverlesstypes.Namespace{}, fmt.Errorf("namespace not found for workgroup workgroup=%s requiredNamespace=%s availableNamespaces=%v", *workgroup.WorkgroupName, *workgroup.NamespaceName, namespaces)
 }
