@@ -70,7 +70,7 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 		redshiftClient := redshift.NewFromConfig(cfg)
 		redshiftServerlessClient := redshiftserverless.NewFromConfig(cfg)
 		secretsManagerClient := secretsmanager.NewFromConfig(cfg)
-		service := NewInteractionService(redshiftClient, redshiftServerlessClient, redshiftDataApiClient, secretsManagerClient, logger)
+		service := NewInteractionService(redshiftClient, redshiftServerlessClient, secretsManagerClient, logger)
 		redshiftDataApiConfig, err = service.Interact(rootContext)
 		if err != nil {
 			return err

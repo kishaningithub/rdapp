@@ -43,13 +43,6 @@ type RedshiftDataAPIQueryHandler interface {
 	QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error
 }
 
-//go:generate mockgen -destination mocks/mock_redshift_data_api_client.go -package mocks . RedshiftDataApiClient
-type RedshiftDataApiClient interface {
-	ExecuteStatement(ctx context.Context, params *redshiftdata.ExecuteStatementInput, optFns ...func(*redshiftdata.Options)) (*redshiftdata.ExecuteStatementOutput, error)
-	DescribeStatement(ctx context.Context, params *redshiftdata.DescribeStatementInput, optFns ...func(*redshiftdata.Options)) (*redshiftdata.DescribeStatementOutput, error)
-	GetStatementResult(ctx context.Context, params *redshiftdata.GetStatementResultInput, optFns ...func(*redshiftdata.Options)) (*redshiftdata.GetStatementResultOutput, error)
-}
-
 type redshiftDataApiQueryHandler struct {
 	logger                *zap.Logger
 	redshiftDataAPIConfig RedshiftDataAPIConfig

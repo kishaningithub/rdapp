@@ -3,15 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	survey "github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/aws/aws-sdk-go-v2/service/redshift/types"
-	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	redshiftserverlesstypes "github.com/aws/aws-sdk-go-v2/service/redshiftserverless/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	secretmanagertypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	rdapp "github.com/kishaningithub/rdapp/pkg"
+	"github.com/kishaningithub/rdapp/pkg"
 	"go.uber.org/zap"
 )
 
@@ -54,18 +53,17 @@ type InteractionService interface {
 }
 
 type interactionService struct {
-	redshiftClient           *redshift.Client
-	redshiftServerlessClient *redshiftserverless.Client
-	redshiftDataApiClient    *redshiftdata.Client
-	secretsManagerClient     *secretsmanager.Client
+	redshiftClient           rdapp.RedshiftClient
+	redshiftServerlessClient rdapp.RedshiftServerlessClient
+	secretsManagerClient     rdapp.SecretsManagerClient
 	logger                   *zap.Logger
 }
 
-func NewInteractionService(redshiftClient *redshift.Client, redshiftServerlessClient *redshiftserverless.Client, redshiftDataApiClient *redshiftdata.Client, secretsManagerClient *secretsmanager.Client, logger *zap.Logger) InteractionService {
+func NewInteractionService(redshiftClient rdapp.RedshiftClient, redshiftServerlessClient rdapp.RedshiftServerlessClient,
+	secretsManagerClient rdapp.SecretsManagerClient, logger *zap.Logger) InteractionService {
 	return &interactionService{
 		redshiftClient:           redshiftClient,
 		redshiftServerlessClient: redshiftServerlessClient,
-		redshiftDataApiClient:    redshiftDataApiClient,
 		secretsManagerClient:     secretsManagerClient,
 		logger:                   logger,
 	}
