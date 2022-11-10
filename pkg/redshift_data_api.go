@@ -167,6 +167,7 @@ const (
 	RedshiftTypeName        = "name"
 	RedshiftTypeOid         = "oid"
 	RedshiftTypeAclitem     = "_aclitem"
+	RedshiftTypeText        = "_text"
 )
 
 func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresType(redshiftTypeName string, loggerWithContext *zap.Logger) (oid.Oid, error) {
@@ -177,6 +178,7 @@ func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresT
 		RedshiftTypeChar:    oid.T_varchar,
 		RedshiftTypeVarchar: oid.T_varchar,
 		RedshiftTypeBpchar:  oid.T_bpchar,
+		RedshiftTypeText:    oid.T_text,
 		// Timestamp types
 		RedshiftTypeTimestamp:   oid.T_timestamp,
 		RedshiftTypeTimestamptz: oid.T_timestamptz,
