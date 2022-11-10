@@ -128,14 +128,14 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, error) {
 	var secrets Secrets
 	secretsPaginator := secretsmanager.NewListSecretsPaginator(service.secretsManagerClient, nil)
-	if secretsPaginator.HasMorePages() {
+	for secretsPaginator.HasMorePages() {
 		listSecretsOutput, err := secretsPaginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		secrets = append(secrets, listSecretsOutput.SecretList...)
 	}
-	service.logger.Debug("secrets fetched from secrets manager", zap.Int("noOfSecrets", len(secrets)))
+	service.logger.Debug("completed fetching secrets from secrets manager", zap.Int("noOfSecrets", len(secrets)))
 	return secrets, nil
 }
 
