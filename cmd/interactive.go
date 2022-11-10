@@ -138,7 +138,7 @@ func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, e
 	for secretsPaginator.HasMorePages() {
 		listSecretsOutput, err := secretsPaginator.NextPage(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error occurred while fetching secrets from secrets manager: %w", err)
 		}
 		secrets = append(secrets, listSecretsOutput.SecretList...)
 	}
