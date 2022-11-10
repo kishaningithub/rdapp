@@ -74,15 +74,7 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 	if err != nil {
 		return rdapp.RedshiftDataAPIConfig{}, err
 	}
-	var selectedInstanceName string
-	err = survey.AskOne(&survey.Select{
-		Message: "Which instance you want to connect to?",
-		Options: instances.getInstanceNames(),
-	}, &selectedInstanceName)
-	if err != nil {
-		return rdapp.RedshiftDataAPIConfig{}, err
-	}
-	selectedInstance, err := instances.getInstanceByName(selectedInstanceName)
+	selectedInstance, err := service.selectInstance(instances)
 	if err != nil {
 		return rdapp.RedshiftDataAPIConfig{}, err
 	}
@@ -110,6 +102,22 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 		selectedInstance.instanceDetails.DbUser = nil
 	}
 	return selectedInstance.instanceDetails, nil
+}
+
+func (service *interactionService) selectInstance(instances configInstances) (ConfigInstance, error) {
+	var selectedInstanceName string
+	err := survey.AskOne(&survey.Select{
+		Message: "Which instance you want to connect to?",
+		Options: instances.getInstanceNames(),
+	}, &selectedInstanceName)
+	if err != nil {
+		return ConfigInstance{}, err
+	}
+	selectedInstance, err := instances.getInstanceByName(selectedInstanceName)
+	if err != nil {
+		return ConfigInstance{}, err
+	}
+	return selectedInstance, nil
 }
 
 func (service *interactionService) loadConfigInstances(ctx context.Context) (configInstances, error) {
