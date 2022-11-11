@@ -102,25 +102,18 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 }
 
 func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
-	var wireColumns wire.Columns
-	for _, column := range result.ColumnMetadata {
-		postgresType, err := handler.convertRedshiftResultTypeToPostgresType(*column.TypeName, loggerWithContext)
-		if err != nil {
-			return err
-		}
-		wireColumns = append(wireColumns, wire.Column{
-			Name:  *column.Name,
-			Oid:   postgresType,
-			Width: int16(column.Length),
-		})
-	}
-	err := writer.Define(wireColumns)
+	err := handler.writeColumnDefinitionToWire(result, writer, loggerWithContext)
 	if err != nil {
-		loggerWithContext.Error("error while writing column definition in result set",
-			zap.Error(err),
-			zap.Any("columnMetadata", result.ColumnMetadata))
 		return err
 	}
+	err = handler.writeRowsToWire(result, writer, loggerWithContext)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (handler *redshiftDataApiQueryHandler) writeRowsToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
 	for _, recordRow := range result.Records {
 		var row []any
 		for _, recordCol := range recordRow {
@@ -139,7 +132,7 @@ func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftda
 				row = append(row, t.Value)
 			}
 		}
-		err = writer.Row(row)
+		err := writer.Row(row)
 		if err != nil {
 			loggerWithContext.Error("error while writing row in result set",
 				zap.Error(err),
@@ -147,6 +140,29 @@ func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftda
 				zap.Any("columnMetadata", result.ColumnMetadata))
 			return fmt.Errorf("error while writing row in result set: %w", err)
 		}
+	}
+	return nil
+}
+
+func (handler *redshiftDataApiQueryHandler) writeColumnDefinitionToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
+	var wireColumns wire.Columns
+	for _, column := range result.ColumnMetadata {
+		postgresType, err := handler.convertRedshiftResultTypeToPostgresType(*column.TypeName, loggerWithContext)
+		if err != nil {
+			return err
+		}
+		wireColumns = append(wireColumns, wire.Column{
+			Name:  *column.Name,
+			Oid:   postgresType,
+			Width: int16(column.Length),
+		})
+	}
+	err := writer.Define(wireColumns)
+	if err != nil {
+		loggerWithContext.Error("error while writing column definition in result set",
+			zap.Error(err),
+			zap.Any("columnMetadata", result.ColumnMetadata))
+		return err
 	}
 	return nil
 }
