@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/goreleaser/goreleaser v1.12.3
 	github.com/jackc/pgx/v4 v4.16.1
-	github.com/jeroenrinzema/psql-wire v0.4.0
+	github.com/jeroenrinzema/psql-wire v0.4.1-0.20221110145115-cabdcd9971b3
 	github.com/lib/pq v1.10.7
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.0

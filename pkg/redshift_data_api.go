@@ -58,13 +58,28 @@ func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient,
 }
 
 //go:generate mockgen -destination mocks/mock_wire_data_writer.go -package mocks github.com/jeroenrinzema/psql-wire DataWriter
-func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
+func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, receivedQuery string, writer wire.DataWriter, parameters []string) error {
 	loggerWithContext := handler.logger.With(
 		zap.String("rdappCorrelationId", uuid.NewString()),
 	)
 	loggerWithContext.Info("received query",
-		zap.String("query", query),
+		zap.String("query", receivedQuery),
 		zap.Strings("queryParameters", parameters))
+	queries := strings.Split(receivedQuery, ";")
+	for _, query := range queries {
+		query = strings.TrimSpace(query)
+		if query == "" {
+			continue
+		}
+		err := handler.runSingleQuery(ctx, query, writer, parameters, loggerWithContext)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (handler *redshiftDataApiQueryHandler) runSingleQuery(ctx context.Context, query string, writer wire.DataWriter, parameters []string, loggerWithContext *zap.Logger) error {
 	queryId, err := handler.executeStatement(ctx, query, parameters, loggerWithContext)
 	if err != nil {
 		return err
@@ -226,9 +241,11 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 			Value: aws.String(parameter),
 		})
 	}
+	submittedQuery := strings.TrimSpace(strings.ReplaceAll(query, "$", ":"))
+	loggerWithContext.Info("query rewritten", zap.String("rewrittenQuery", submittedQuery))
 	output, err := handler.redshiftDataApiClient.ExecuteStatement(ctx, &redshiftdata.ExecuteStatementInput{
 		Database:          handler.redshiftDataAPIConfig.Database,
-		Sql:               aws.String(strings.ReplaceAll(query, "$", ":")),
+		Sql:               aws.String(submittedQuery),
 		ClusterIdentifier: handler.redshiftDataAPIConfig.ClusterIdentifier,
 		DbUser:            handler.redshiftDataAPIConfig.DbUser,
 		SecretArn:         handler.redshiftDataAPIConfig.SecretArn,
