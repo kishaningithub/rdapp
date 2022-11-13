@@ -4,12 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/aws/aws-sdk-go-v2/service/redshift"
 	"github.com/aws/aws-sdk-go-v2/service/redshift/types"
-	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	redshiftserverlesstypes "github.com/aws/aws-sdk-go-v2/service/redshiftserverless/types"
-	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	secretmanagertypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/kishaningithub/rdapp/pkg"
 )
 
@@ -37,32 +33,19 @@ func (instances configInstances) getInstanceByName(instanceName string) (ConfigI
 	return ConfigInstance{}, fmt.Errorf("configuration instance is not found instanceName=%s", instanceName)
 }
 
-type Secrets []secretmanagertypes.SecretListEntry
-
-func (secrets Secrets) getSecretArns() []string {
-	var secretArns []string
-	for _, secret := range secrets {
-		secretArns = append(secretArns, *secret.ARN)
-	}
-	return secretArns
-}
-
 type InteractionService interface {
 	Interact(ctx context.Context) (rdapp.RedshiftDataAPIConfig, error)
 }
 
 type interactionService struct {
-	redshiftClient           rdapp.RedshiftClient
-	redshiftServerlessClient rdapp.RedshiftServerlessClient
-	secretsManagerClient     rdapp.SecretsManagerClient
+	redshiftService rdapp.RedshiftService
+	secretsService  rdapp.SecretsService
 }
 
-func NewInteractionService(redshiftClient rdapp.RedshiftClient, redshiftServerlessClient rdapp.RedshiftServerlessClient,
-	secretsManagerClient rdapp.SecretsManagerClient) InteractionService {
+func NewInteractionService(redshiftService rdapp.RedshiftService, secretsService rdapp.SecretsService) InteractionService {
 	return &interactionService{
-		redshiftClient:           redshiftClient,
-		redshiftServerlessClient: redshiftServerlessClient,
-		secretsManagerClient:     secretsManagerClient,
+		redshiftService: redshiftService,
+		secretsService:  secretsService,
 	}
 }
 
@@ -83,14 +66,14 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 		return rdapp.RedshiftDataAPIConfig{}, err
 	}
 	if useSecretManager {
-		secrets, err := service.fetchSecrets(ctx)
+		secrets, err := service.secretsService.FetchSecrets(ctx)
 		if err != nil {
 			return rdapp.RedshiftDataAPIConfig{}, err
 		}
 		var selectedSecretArn string
 		err = survey.AskOne(&survey.Select{
 			Message: "Choose the secret",
-			Options: secrets.getSecretArns(),
+			Options: secrets.GetSecretArns(),
 		}, &selectedSecretArn)
 		if err != nil {
 			return rdapp.RedshiftDataAPIConfig{}, err
@@ -119,15 +102,15 @@ func (service *interactionService) selectInstance(instances configInstances) (Co
 }
 
 func (service *interactionService) loadConfigInstances(ctx context.Context) (configInstances, error) {
-	provisionedClusters, err := service.fetchProvisionedClusters(ctx)
+	provisionedClusters, err := service.redshiftService.FetchProvisionedClusters(ctx)
 	if err != nil {
 		return nil, err
 	}
-	serverlessNamespaces, err := service.fetchServerlessNamespaces(ctx)
+	serverlessNamespaces, err := service.redshiftService.FetchServerlessNamespaces(ctx)
 	if err != nil {
 		return nil, err
 	}
-	workgroups, err := service.fetchServerlessWorkGroups(ctx)
+	workgroups, err := service.redshiftService.FetchServerlessWorkGroups(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -136,58 +119,6 @@ func (service *interactionService) loadConfigInstances(ctx context.Context) (con
 		return nil, err
 	}
 	return instances, nil
-}
-
-func (service *interactionService) fetchSecrets(ctx context.Context) (Secrets, error) {
-	var secrets Secrets
-	secretsPaginator := secretsmanager.NewListSecretsPaginator(service.secretsManagerClient, nil)
-	for secretsPaginator.HasMorePages() {
-		listSecretsOutput, err := secretsPaginator.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error occurred while fetching secrets from secrets manager: %w", err)
-		}
-		secrets = append(secrets, listSecretsOutput.SecretList...)
-	}
-	return secrets, nil
-}
-
-func (service *interactionService) fetchServerlessWorkGroups(ctx context.Context) ([]redshiftserverlesstypes.Workgroup, error) {
-	var serverlessWorkgroups []redshiftserverlesstypes.Workgroup
-	listWorkgroupsPaginator := redshiftserverless.NewListWorkgroupsPaginator(service.redshiftServerlessClient, nil)
-	for listWorkgroupsPaginator.HasMorePages() {
-		page, err := listWorkgroupsPaginator.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading serverless workgroups: %w", err)
-		}
-		serverlessWorkgroups = append(serverlessWorkgroups, page.Workgroups...)
-	}
-	return serverlessWorkgroups, nil
-}
-
-func (service *interactionService) fetchServerlessNamespaces(ctx context.Context) ([]redshiftserverlesstypes.Namespace, error) {
-	var serverlessNamespaces []redshiftserverlesstypes.Namespace
-	listNamespacesPaginator := redshiftserverless.NewListNamespacesPaginator(service.redshiftServerlessClient, nil)
-	for listNamespacesPaginator.HasMorePages() {
-		page, err := listNamespacesPaginator.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading redshift serverless namespaces: %w", err)
-		}
-		serverlessNamespaces = append(serverlessNamespaces, page.Namespaces...)
-	}
-	return serverlessNamespaces, nil
-}
-
-func (service *interactionService) fetchProvisionedClusters(ctx context.Context) ([]types.Cluster, error) {
-	var clusters []types.Cluster
-	describeClustersPaginator := redshift.NewDescribeClustersPaginator(service.redshiftClient, nil)
-	for describeClustersPaginator.HasMorePages() {
-		page, err := describeClustersPaginator.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading provisioned clusters: %w", err)
-		}
-		clusters = append(clusters, page.Clusters...)
-	}
-	return clusters, nil
 }
 
 func (service *interactionService) computeConfigInstances(provisionedClusters []types.Cluster, serverlessWorkgroups []redshiftserverlesstypes.Workgroup, serverlessNamespaces []redshiftserverlesstypes.Namespace) (configInstances, error) {
