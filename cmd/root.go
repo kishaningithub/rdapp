@@ -79,7 +79,9 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 		}
 		logger.Info("using config", zap.Any("config", redshiftDataApiConfig))
 	}
-	redshiftDataApiQueryHandler := rdapp.NewRedshiftDataApiQueryHandler(redshiftDataApiClient, redshiftDataApiConfig, logger)
+	redshiftDataAPIService := rdapp.NewRedshiftDataAPIService(redshiftDataApiClient, redshiftDataApiConfig)
+	pgRedshiftTranslator := rdapp.NewPgRedshiftTranslator()
+	redshiftDataApiQueryHandler := rdapp.NewRedshiftDataApiQueryHandler(redshiftDataAPIService, pgRedshiftTranslator, logger)
 	err = rdapp.NewPostgresRedshiftDataAPIProxy(listenAddress, redshiftDataApiQueryHandler.QueryHandler, logger).Run()
 	if err != nil {
 		return fmt.Errorf("error while creating postgres redshift proxy: %w", err)
