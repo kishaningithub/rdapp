@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
-	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/kishaningithub/rdapp/pkg"
@@ -57,7 +56,6 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("error while loading aws config: %w", err)
 	}
-	redshiftDataApiClient := redshiftdata.NewFromConfig(cfg)
 	redshiftDataApiConfig := rdapp.RedshiftDataAPIConfig{
 		Database:          getFlagValue(database),
 		ClusterIdentifier: getFlagValue(clusterIdentifier),
@@ -79,10 +77,8 @@ func runRootCommand(_ *cobra.Command, _ []string) error {
 		}
 		logger.Info("using config", zap.Any("config", redshiftDataApiConfig))
 	}
-	redshiftDataAPIService := rdapp.NewRedshiftDataAPIService(redshiftDataApiClient, redshiftDataApiConfig)
-	pgRedshiftTranslator := rdapp.NewPgRedshiftTranslator()
-	redshiftDataApiQueryHandler := rdapp.NewRedshiftDataApiQueryHandler(redshiftDataAPIService, pgRedshiftTranslator, logger)
-	err = rdapp.NewPostgresRedshiftDataAPIProxy(listenAddress, redshiftDataApiQueryHandler.QueryHandler, logger).Run()
+	proxy := rdapp.ConstructProxy(cfg, redshiftDataApiConfig, logger, listenAddress)
+	err = proxy.Run()
 	if err != nil {
 		return fmt.Errorf("error while creating postgres redshift proxy: %w", err)
 	}
