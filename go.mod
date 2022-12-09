@@ -13,7 +13,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/google/uuid v1.3.0
-	github.com/goreleaser/goreleaser v1.13.0
+	github.com/goreleaser/goreleaser v1.13.1
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jeroenrinzema/psql-wire v0.4.0
 	github.com/lib/pq v1.10.7
