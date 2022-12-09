@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"testing"
+	"time"
 )
 
 var (
@@ -27,7 +28,8 @@ func TestRedshiftDataAPIProxyTestSuite(t *testing.T) {
 
 func (suite *RedshiftDataAPIProxyTestSuite) SetupSuite() {
 	listenAddress := ":35432"
-	logger := zap.NewExample()
+	logger, err := zap.NewDevelopment()
+	suite.Require().NoError(err)
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	suite.Require().NoError(err)
 	redshiftDataAPIConfig := rdapp.RedshiftDataAPIConfig{
@@ -56,7 +58,15 @@ func (suite *RedshiftDataAPIProxyTestSuite) TestConnectivity() {
 }
 
 func (suite *RedshiftDataAPIProxyTestSuite) TestQueryExecution() {
-	rows, err := suite.conn.Query(context.Background(), "select name, weight from widgets limit 1")
+	var intValue int
+	var stringValue string
+	var boolValue bool
+	var timeStamp time.Time
+	err := suite.conn.QueryRow(context.Background(), "select 1, 'name', true, now()").
+		Scan(&intValue, &stringValue, &boolValue, &timeStamp)
 	suite.Require().NoError(err)
-	suite.Require().NoError(rows.Err())
+	suite.Require().Equal(1, intValue)
+	suite.Require().Equal("name", stringValue)
+	suite.Require().Equal(true, boolValue)
+	suite.Require().WithinDuration(time.Now().UTC(), timeStamp, 10*time.Second)
 }
