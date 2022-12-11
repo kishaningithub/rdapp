@@ -15,7 +15,7 @@ tidy-deps:
 	go mod tidy
 
 update-deps:
-	go get -u ./...
+	go get -u -t ./...
 	go mod tidy
 
 compile:
