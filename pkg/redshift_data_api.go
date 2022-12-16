@@ -53,7 +53,7 @@ func NewRedshiftDataAPIService(redshiftDataApiClient RedshiftDataApiClient, reds
 
 func (service *redshiftDataAPIService) ExecuteQuery(ctx RdappContext, query string, parameters []types.SqlParameter) (*redshiftdata.GetStatementResultOutput, error) {
 	loggerWithContext := ctx.logger
-	if strings.ContainsAny(query, "deallocate") {
+	if strings.Contains(query, "deallocate") {
 		return nil, nil
 	}
 	queryId, err := service.executeStatement(ctx, query, parameters, loggerWithContext)

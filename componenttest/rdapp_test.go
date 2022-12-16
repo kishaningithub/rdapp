@@ -76,7 +76,7 @@ func (suite *RedshiftDataAPIProxyTestSuite) TestSimpleQueryExecution() {
 	suite.Require().WithinDuration(time.Now().UTC(), timeStamp, 10*time.Second)
 }
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecution() {
+func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionUsingDollarParamStyle() {
 	query := `
       select * 
       from (
@@ -87,6 +87,35 @@ func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecution(
 		  select 3 id
       )
       where id > $1
+   `
+	stmt, err := suite.conn.Prepare(query)
+	suite.Require().NoError(err)
+	defer stmt.Close()
+	rows, err := stmt.Query(1)
+	suite.Require().NoError(err)
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		suite.Require().NoError(err)
+		ids = append(ids, id)
+	}
+	suite.Require().NoError(rows.Err())
+	suite.Require().Equal([]int{2, 3}, ids)
+}
+
+func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionUsingQuestionMarkParamStyle() {
+	query := `
+      select * 
+      from (
+		  select 1 id
+		  union all
+		  select 2 id
+		  union all
+		  select 3 id
+      )
+      where id > ?
    `
 	stmt, err := suite.conn.Prepare(query)
 	suite.Require().NoError(err)

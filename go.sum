@@ -1208,8 +1208,8 @@ github.com/jackc/puddle v1.2.1/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dv
 github.com/jarcoal/httpmock v1.2.0 h1:gSvTxxFR/MEMfsGrvRbdfpRUMBStovlSRLw0Ep1bwwc=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
-github.com/jeroenrinzema/psql-wire v0.4.0 h1:uv1XlJvNhqa4Qr1r+DrMg/S/vn/aJJbLkjqFnOetr5A=
-github.com/jeroenrinzema/psql-wire v0.4.0/go.mod h1:9m90kLSDtU63fw3TKZfwzUgkrvSpDtODEKio/NiPxQM=
+github.com/jeroenrinzema/psql-wire v0.4.1-0.20221216122408-37856c3ca610 h1:UNzdKJCpt7GpCOrQkvxH+hVwPXGieUqOSiMzml8xbUY=
+github.com/jeroenrinzema/psql-wire v0.4.1-0.20221216122408-37856c3ca610/go.mod h1:9m90kLSDtU63fw3TKZfwzUgkrvSpDtODEKio/NiPxQM=
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
 github.com/jgautheron/goconst v1.5.1 h1:HxVbL1MhydKs8R8n/HE5NPvzfaYmQJA3o879lE4+WcM=
 github.com/jgautheron/goconst v1.5.1/go.mod h1:aAosetZ5zaeC/2EfMeRswtxUFBpe2Hr7HzkgX4fanO4=

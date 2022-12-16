@@ -26,7 +26,11 @@ func NewPgRedshiftTranslator() PgRedshiftTranslator {
 }
 
 func (translator *pgRedshiftTranslator) TranslateToRedshiftQuery(query string) string {
-	return strings.ReplaceAll(query, "$", ":")
+	newQuery := strings.ReplaceAll(query, "$", ":")
+	for i := 1; strings.Contains(newQuery, "?"); i++ {
+		newQuery = strings.Replace(newQuery, "?", fmt.Sprintf(":%d", i), 1)
+	}
+	return newQuery
 }
 
 func (translator *pgRedshiftTranslator) TranslateToRedshiftQueryParams(pgParams []string) []types.SqlParameter {
