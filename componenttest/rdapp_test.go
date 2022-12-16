@@ -2,9 +2,10 @@ package componenttest
 
 import (
 	"context"
+	"database/sql"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	rdapp "github.com/kishaningithub/rdapp/pkg"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ var (
 
 type RedshiftDataAPIProxyTestSuite struct {
 	suite.Suite
-	conn *pgx.Conn
+	conn *sql.DB
 }
 
 func TestRedshiftDataAPIProxyTestSuite(t *testing.T) {
@@ -42,31 +43,64 @@ func (suite *RedshiftDataAPIProxyTestSuite) SetupSuite() {
 		err := proxy.Run()
 		suite.Require().NoError(err)
 	}()
+
 	databaseUrl := "postgres://postgres:mypassword@localhost:35432/postgres"
-	conn, err := pgx.Connect(context.Background(), databaseUrl)
+	conn, err := sql.Open("pgx", databaseUrl)
 	suite.Require().NoError(err)
 	suite.conn = conn
 }
 
 func (suite *RedshiftDataAPIProxyTestSuite) TearDownSuite() {
-	_ = suite.conn.Close(context.Background())
+	_ = suite.conn.Close()
 }
 
 func (suite *RedshiftDataAPIProxyTestSuite) TestConnectivity() {
-	connInfo := suite.conn.Config()
-	suite.Require().Equal("localhost", connInfo.Host)
+	err := suite.conn.Ping()
+	suite.Require().NoError(err)
 }
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestQueryExecution() {
+func (suite *RedshiftDataAPIProxyTestSuite) TestSimpleQueryExecution() {
 	var intValue int
 	var stringValue string
 	var boolValue bool
 	var timeStamp time.Time
-	err := suite.conn.QueryRow(context.Background(), "select 1, 'name', true, now()").
-		Scan(&intValue, &stringValue, &boolValue, &timeStamp)
+	rows, err := suite.conn.Query("select 1, 'name', true, now()")
+	defer rows.Close()
+	suite.Require().NoError(err)
+	suite.Require().True(rows.Next())
+	err = rows.Scan(&intValue, &stringValue, &boolValue, &timeStamp)
 	suite.Require().NoError(err)
 	suite.Require().Equal(1, intValue)
 	suite.Require().Equal("name", stringValue)
 	suite.Require().Equal(true, boolValue)
 	suite.Require().WithinDuration(time.Now().UTC(), timeStamp, 10*time.Second)
+}
+
+func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecution() {
+	query := `
+      select * 
+      from (
+		  select 1 id
+		  union all
+		  select 2 id
+		  union all
+		  select 3 id
+      )
+      where id > $1
+   `
+	stmt, err := suite.conn.Prepare(query)
+	suite.Require().NoError(err)
+	defer stmt.Close()
+	rows, err := stmt.Query(1)
+	suite.Require().NoError(err)
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		suite.Require().NoError(err)
+		ids = append(ids, id)
+	}
+	suite.Require().NoError(rows.Err())
+	suite.Require().Equal([]int{2, 3}, ids)
 }

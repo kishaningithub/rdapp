@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata/types"
 	"go.uber.org/zap"
+	"strings"
 )
 
 type RedshiftDataAPIConfig struct {
@@ -52,6 +53,9 @@ func NewRedshiftDataAPIService(redshiftDataApiClient RedshiftDataApiClient, reds
 
 func (service *redshiftDataAPIService) ExecuteQuery(ctx RdappContext, query string, parameters []types.SqlParameter) (*redshiftdata.GetStatementResultOutput, error) {
 	loggerWithContext := ctx.logger
+	if strings.ContainsAny(query, "deallocate") {
+		return nil, nil
+	}
 	queryId, err := service.executeStatement(ctx, query, parameters, loggerWithContext)
 	if err != nil {
 		return nil, err

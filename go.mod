@@ -14,7 +14,7 @@ require (
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/google/uuid v1.3.0
 	github.com/goreleaser/goreleaser v1.13.1
-	github.com/jackc/pgx/v4 v4.16.1
+	github.com/jackc/pgx/v5 v5.0.3
 	github.com/jeroenrinzema/psql-wire v0.4.0
 	github.com/lib/pq v1.10.7
 	github.com/spf13/cobra v1.6.1
@@ -180,11 +180,8 @@ require (
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/invopop/jsonschema v0.7.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.12.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
