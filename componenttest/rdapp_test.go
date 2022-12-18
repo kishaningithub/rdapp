@@ -7,32 +7,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	rdapp "github.com/kishaningithub/rdapp/pkg"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"testing"
 	"time"
 )
 
-var (
-	_ suite.SetupAllSuite    = (*RedshiftDataAPIProxyTestSuite)(nil)
-	_ suite.TearDownAllSuite = (*RedshiftDataAPIProxyTestSuite)(nil)
-)
-
-type RedshiftDataAPIProxyTestSuite struct {
-	suite.Suite
-	conn *sql.DB
-}
-
-func TestRedshiftDataAPIProxyTestSuite(t *testing.T) {
-	suite.Run(t, new(RedshiftDataAPIProxyTestSuite))
-}
-
-func (suite *RedshiftDataAPIProxyTestSuite) SetupSuite() {
+func TestRedshiftDataApiPostgresProxy(t *testing.T) {
 	listenAddress := ":35432"
 	logger, err := zap.NewDevelopment()
-	suite.Require().NoError(err)
+
+	require.NoError(t, err)
 	cfg, err := config.LoadDefaultConfig(context.Background())
-	suite.Require().NoError(err)
+	require.NoError(t, err)
 	redshiftDataAPIConfig := rdapp.RedshiftDataAPIConfig{
 		Database:      aws.String("dev"),
 		WorkgroupName: aws.String("rdapp"),
@@ -41,43 +28,41 @@ func (suite *RedshiftDataAPIProxyTestSuite) SetupSuite() {
 	go func() {
 		logger.Info("Starting test instance of postgres redshift proxy...")
 		err := proxy.Run()
-		suite.Require().NoError(err)
+		require.NoError(t, err)
 	}()
 
 	databaseUrl := "postgres://postgres:mypassword@localhost:35432/postgres"
 	conn, err := sql.Open("pgx", databaseUrl)
-	suite.Require().NoError(err)
-	suite.conn = conn
-}
+	require.NoError(t, err)
 
-func (suite *RedshiftDataAPIProxyTestSuite) TearDownSuite() {
-	_ = suite.conn.Close()
-}
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestConnectivity() {
-	err := suite.conn.Ping()
-	suite.Require().NoError(err)
-}
+	t.Run("test connectivity", func(t *testing.T) {
+		err := conn.Ping()
+		require.NoError(t, err)
+	})
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestSimpleQueryExecution() {
-	var intValue int
-	var stringValue string
-	var boolValue bool
-	var timeStamp time.Time
-	rows, err := suite.conn.Query("select 1, 'name', true, now()")
-	defer rows.Close()
-	suite.Require().NoError(err)
-	suite.Require().True(rows.Next())
-	err = rows.Scan(&intValue, &stringValue, &boolValue, &timeStamp)
-	suite.Require().NoError(err)
-	suite.Require().Equal(1, intValue)
-	suite.Require().Equal("name", stringValue)
-	suite.Require().Equal(true, boolValue)
-	suite.Require().WithinDuration(time.Now().UTC(), timeStamp, 10*time.Second)
-}
+	t.Run("simple query execution", func(t *testing.T) {
+		var intValue int
+		var stringValue string
+		var boolValue bool
+		var timeStamp time.Time
+		rows, err := conn.Query("select 1, 'name', true, now()")
+		defer rows.Close()
+		require.NoError(t, err)
+		require.True(t, rows.Next())
+		err = rows.Scan(&intValue, &stringValue, &boolValue, &timeStamp)
+		require.NoError(t, err)
+		require.Equal(t, 1, intValue)
+		require.Equal(t, "name", stringValue)
+		require.Equal(t, true, boolValue)
+		require.WithinDuration(t, time.Now().UTC(), timeStamp, 10*time.Second)
+	})
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionUsingDollarParamStyle() {
-	query := `
+	t.Run("prepared statement query execution using dollar parm style", func(t *testing.T) {
+		query := `
       select * 
       from (
 		  select 1 id
@@ -88,25 +73,25 @@ func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionU
       )
       where id > $1
    `
-	stmt, err := suite.conn.Prepare(query)
-	suite.Require().NoError(err)
-	defer stmt.Close()
-	rows, err := stmt.Query(1)
-	suite.Require().NoError(err)
-	defer rows.Close()
-	var ids []int
-	for rows.Next() {
-		var id int
-		err := rows.Scan(&id)
-		suite.Require().NoError(err)
-		ids = append(ids, id)
-	}
-	suite.Require().NoError(rows.Err())
-	suite.Require().Equal([]int{2, 3}, ids)
-}
+		stmt, err := conn.Prepare(query)
+		require.NoError(t, err)
+		defer stmt.Close()
+		rows, err := stmt.Query(1)
+		require.NoError(t, err)
+		defer rows.Close()
+		var ids []int
+		for rows.Next() {
+			var id int
+			err := rows.Scan(&id)
+			require.NoError(t, err)
+			ids = append(ids, id)
+		}
+		require.NoError(t, rows.Err())
+		require.Equal(t, []int{2, 3}, ids)
+	})
 
-func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionUsingQuestionMarkParamStyle() {
-	query := `
+	t.Run("prepared statement query execution using question mark style", func(t *testing.T) {
+		query := `
       select * 
       from (
 		  select 1 id
@@ -117,19 +102,20 @@ func (suite *RedshiftDataAPIProxyTestSuite) TestPreparedStatementQueryExecutionU
       )
       where id > ?
    `
-	stmt, err := suite.conn.Prepare(query)
-	suite.Require().NoError(err)
-	defer stmt.Close()
-	rows, err := stmt.Query(1)
-	suite.Require().NoError(err)
-	defer rows.Close()
-	var ids []int
-	for rows.Next() {
-		var id int
-		err := rows.Scan(&id)
-		suite.Require().NoError(err)
-		ids = append(ids, id)
-	}
-	suite.Require().NoError(rows.Err())
-	suite.Require().Equal([]int{2, 3}, ids)
+		stmt, err := conn.Prepare(query)
+		require.NoError(t, err)
+		defer stmt.Close()
+		rows, err := stmt.Query(1)
+		require.NoError(t, err)
+		defer rows.Close()
+		var ids []int
+		for rows.Next() {
+			var id int
+			err := rows.Scan(&id)
+			require.NoError(t, err)
+			ids = append(ids, id)
+		}
+		require.NoError(t, rows.Err())
+		require.Equal(t, []int{2, 3}, ids)
+	})
 }
