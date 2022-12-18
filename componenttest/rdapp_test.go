@@ -50,8 +50,10 @@ func TestRedshiftDataApiPostgresProxy(t *testing.T) {
 		var boolValue bool
 		var timeStamp time.Time
 		rows, err := conn.Query("select 1, 'name', true, now()")
-		defer rows.Close()
 		require.NoError(t, err)
+		t.Cleanup(func() {
+			rows.Close()
+		})
 		require.True(t, rows.Next())
 		err = rows.Scan(&intValue, &stringValue, &boolValue, &timeStamp)
 		require.NoError(t, err)
@@ -75,10 +77,14 @@ func TestRedshiftDataApiPostgresProxy(t *testing.T) {
    `
 		stmt, err := conn.Prepare(query)
 		require.NoError(t, err)
-		defer stmt.Close()
+		t.Cleanup(func() {
+			stmt.Close()
+		})
 		rows, err := stmt.Query(1)
 		require.NoError(t, err)
-		defer rows.Close()
+		t.Cleanup(func() {
+			rows.Close()
+		})
 		var ids []int
 		for rows.Next() {
 			var id int
@@ -104,10 +110,14 @@ func TestRedshiftDataApiPostgresProxy(t *testing.T) {
    `
 		stmt, err := conn.Prepare(query)
 		require.NoError(t, err)
-		defer stmt.Close()
+		t.Cleanup(func() {
+			stmt.Close()
+		})
 		rows, err := stmt.Query(1)
 		require.NoError(t, err)
-		defer rows.Close()
+		t.Cleanup(func() {
+			rows.Close()
+		})
 		var ids []int
 		for rows.Next() {
 			var id int
