@@ -6,11 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata"
 	"github.com/aws/aws-sdk-go-v2/service/redshiftdata/types"
-	"github.com/google/uuid"
-	wire "github.com/jeroenrinzema/psql-wire"
-	"github.com/lib/pq/oid"
 	"go.uber.org/zap"
-	"strconv"
 	"strings"
 )
 
@@ -39,41 +35,36 @@ type RedshiftDataAPIConfig struct {
 	WorkgroupName *string
 }
 
-type RedshiftDataAPIQueryHandler interface {
-	QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error
+type RedshiftDataAPIService interface {
+	ExecuteQuery(ctx RdappContext, query string, parameters []types.SqlParameter) (*redshiftdata.GetStatementResultOutput, error)
 }
 
-type redshiftDataApiQueryHandler struct {
-	logger                *zap.Logger
+type redshiftDataAPIService struct {
 	redshiftDataAPIConfig RedshiftDataAPIConfig
 	redshiftDataApiClient RedshiftDataApiClient
 }
 
-func NewRedshiftDataApiQueryHandler(redshiftDataApiClient RedshiftDataApiClient, redshiftDataAPIConfig RedshiftDataAPIConfig, logger *zap.Logger) RedshiftDataAPIQueryHandler {
-	return &redshiftDataApiQueryHandler{
-		logger:                logger,
+func NewRedshiftDataAPIService(redshiftDataApiClient RedshiftDataApiClient, redshiftDataAPIConfig RedshiftDataAPIConfig) RedshiftDataAPIService {
+	return &redshiftDataAPIService{
 		redshiftDataAPIConfig: redshiftDataAPIConfig,
 		redshiftDataApiClient: redshiftDataApiClient,
 	}
 }
 
-//go:generate mockgen -destination mocks/mock_wire_data_writer.go -package mocks github.com/jeroenrinzema/psql-wire DataWriter
-func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
-	loggerWithContext := handler.logger.With(
-		zap.String("rdappCorrelationId", uuid.NewString()),
-	)
-	loggerWithContext.Info("received query",
-		zap.String("query", query),
-		zap.Strings("queryParameters", parameters))
-	queryId, err := handler.executeStatement(ctx, query, parameters, loggerWithContext)
+func (service *redshiftDataAPIService) ExecuteQuery(ctx RdappContext, query string, parameters []types.SqlParameter) (*redshiftdata.GetStatementResultOutput, error) {
+	loggerWithContext := ctx.logger
+	if strings.Contains(query, "deallocate") {
+		return nil, nil
+	}
+	queryId, err := service.executeStatement(ctx, query, parameters, loggerWithContext)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	loggerWithContext = loggerWithContext.With(zap.String("redshiftDataApiQueryId", queryId))
 	loggerWithContext.Info("submitted query to redshift data api")
-	describeStatementOutput, err := handler.waitForQueryToFinish(ctx, queryId, loggerWithContext)
+	describeStatementOutput, err := service.waitForQueryToFinish(ctx, queryId, loggerWithContext)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	loggerWithContext = loggerWithContext.With(zap.Int64("redshiftQueryId", describeStatementOutput.RedshiftQueryId))
 	loggerWithContext.Info("query finished execution",
@@ -81,161 +72,36 @@ func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, qu
 		zap.Bool("hasResultSet", *describeStatementOutput.HasResultSet),
 	)
 	if *describeStatementOutput.HasResultSet {
-		result, err := handler.redshiftDataApiClient.GetStatementResult(ctx, &redshiftdata.GetStatementResultInput{
+		result, err := service.redshiftDataApiClient.GetStatementResult(ctx, &redshiftdata.GetStatementResultInput{
 			Id: aws.String(queryId),
 		})
 		if err != nil {
 			loggerWithContext.Error("error while getting statement result",
 				zap.Error(err),
 			)
-			return fmt.Errorf("error while getting statement result: %w", err)
+			return nil, fmt.Errorf("error while getting statement result: %w", err)
 		}
 		loggerWithContext.Info("received get statement result from redshift",
 			zap.Int64("noOfRowsReturned", result.TotalNumRows))
-		err = handler.writeResultToWire(result, writer, loggerWithContext)
-		if err != nil {
-			return err
-		}
-		loggerWithContext.Info("completed writing result into the wire")
+		return result, nil
 	}
-	return writer.Complete("OK")
+	return nil, nil
 }
 
-func (handler *redshiftDataApiQueryHandler) writeResultToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
-	err := handler.writeColumnDefinitionToWire(result, writer, loggerWithContext)
-	if err != nil {
-		return err
-	}
-	err = handler.writeRowsToWire(result, writer, loggerWithContext)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (handler *redshiftDataApiQueryHandler) writeRowsToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
-	for _, recordRow := range result.Records {
-		var row []any
-		for _, recordCol := range recordRow {
-			switch t := recordCol.(type) {
-			case *types.FieldMemberIsNull:
-				row = append(row, nil)
-			case *types.FieldMemberBlobValue:
-				row = append(row, t.Value)
-			case *types.FieldMemberBooleanValue:
-				row = append(row, t.Value)
-			case *types.FieldMemberDoubleValue:
-				row = append(row, t.Value)
-			case *types.FieldMemberLongValue:
-				row = append(row, t.Value)
-			case *types.FieldMemberStringValue:
-				row = append(row, t.Value)
-			}
-		}
-		err := writer.Row(row)
-		if err != nil {
-			loggerWithContext.Error("error while writing row in result set",
-				zap.Error(err),
-				zap.Any("recordRow", recordRow),
-				zap.Any("columnMetadata", result.ColumnMetadata))
-			return fmt.Errorf("error while writing row in result set: %w", err)
-		}
-	}
-	return nil
-}
-
-func (handler *redshiftDataApiQueryHandler) writeColumnDefinitionToWire(result *redshiftdata.GetStatementResultOutput, writer wire.DataWriter, loggerWithContext *zap.Logger) error {
-	var wireColumns wire.Columns
-	for _, column := range result.ColumnMetadata {
-		postgresType, err := handler.convertRedshiftResultTypeToPostgresType(*column.TypeName, loggerWithContext)
-		if err != nil {
-			return err
-		}
-		wireColumns = append(wireColumns, wire.Column{
-			Name:  *column.Name,
-			Oid:   postgresType,
-			Width: int16(column.Length),
-		})
-	}
-	err := writer.Define(wireColumns)
-	if err != nil {
-		loggerWithContext.Error("error while writing column definition in result set",
-			zap.Error(err),
-			zap.Any("columnMetadata", result.ColumnMetadata))
-		return err
-	}
-	return nil
-}
-
-const (
-	RedshiftTypeSuper       = "super"
-	RedshiftTypeBool        = "bool"
-	RedshiftTypeChar        = "char"
-	RedshiftTypeVarchar     = "varchar"
-	RedshiftTypeBpchar      = "bpchar"
-	RedshiftTypeTimestamp   = "timestamp"
-	RedshiftTypeTimestamptz = "timestamptz"
-	RedshiftTypeFloat4      = "float4"
-	RedshiftTypeFloat8      = "float8"
-	RedshiftTypeInt2        = "int2"
-	RedshiftTypeInt4        = "int4"
-	RedshiftTypeInt8        = "int8"
-	RedshiftTypeName        = "name"
-	RedshiftTypeOid         = "oid"
-	RedshiftTypeAclitem     = "_aclitem"
-	RedshiftTypeText        = "_text"
-)
-
-func (handler *redshiftDataApiQueryHandler) convertRedshiftResultTypeToPostgresType(redshiftTypeName string, loggerWithContext *zap.Logger) (oid.Oid, error) {
-	typeConversions := map[string]oid.Oid{
-		RedshiftTypeSuper: oid.T_json,
-		RedshiftTypeBool:  oid.T_bool,
-		// Character types
-		RedshiftTypeChar:    oid.T_varchar,
-		RedshiftTypeVarchar: oid.T_varchar,
-		RedshiftTypeBpchar:  oid.T_bpchar,
-		RedshiftTypeText:    oid.T_text,
-		// Timestamp types
-		RedshiftTypeTimestamp:   oid.T_timestamp,
-		RedshiftTypeTimestamptz: oid.T_timestamptz,
-		// Numeric types
-		RedshiftTypeFloat4: oid.T_float4,
-		RedshiftTypeFloat8: oid.T_float8,
-		RedshiftTypeInt2:   oid.T_int2,
-		RedshiftTypeInt4:   oid.T_int4,
-		RedshiftTypeInt8:   oid.T_int8,
-		//	Esoteric types
-		RedshiftTypeName:    oid.T_name,
-		RedshiftTypeOid:     oid.T_oid,
-		RedshiftTypeAclitem: oid.T_aclitem,
-	}
-	value, exists := typeConversions[redshiftTypeName]
-	if !exists {
-		loggerWithContext.Error("no convertor found for redshift type",
-			zap.String("redshiftTypeName", redshiftTypeName))
-		return 0, fmt.Errorf("no convertor found redshiftTypeName=%v", redshiftTypeName)
-	}
-	return value, nil
-}
-
-func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context, query string, parameters []string, loggerWithContext *zap.Logger) (string, error) {
-	var sqlParameters []types.SqlParameter
-	for i, parameter := range parameters {
-		sqlParameters = append(sqlParameters, types.SqlParameter{
-			Name:  aws.String(strconv.Itoa(i + 1)),
-			Value: aws.String(parameter),
-		})
-	}
-	output, err := handler.redshiftDataApiClient.ExecuteStatement(ctx, &redshiftdata.ExecuteStatementInput{
-		Database:          handler.redshiftDataAPIConfig.Database,
-		Sql:               aws.String(strings.ReplaceAll(query, "$", ":")),
-		ClusterIdentifier: handler.redshiftDataAPIConfig.ClusterIdentifier,
-		DbUser:            handler.redshiftDataAPIConfig.DbUser,
-		SecretArn:         handler.redshiftDataAPIConfig.SecretArn,
+func (service *redshiftDataAPIService) executeStatement(ctx context.Context, query string, parameters []types.SqlParameter, loggerWithContext *zap.Logger) (string, error) {
+	loggerWithContext.Info("executing query",
+		zap.String("query", query),
+		zap.Any("parameters", parameters))
+	output, err := service.redshiftDataApiClient.ExecuteStatement(ctx, &redshiftdata.ExecuteStatementInput{
+		Database:          service.redshiftDataAPIConfig.Database,
+		Sql:               aws.String(query),
+		ClusterIdentifier: service.redshiftDataAPIConfig.ClusterIdentifier,
+		DbUser:            service.redshiftDataAPIConfig.DbUser,
+		SecretArn:         service.redshiftDataAPIConfig.SecretArn,
 		StatementName:     aws.String("execute_rdapp_query"),
 		WithEvent:         aws.Bool(true),
-		WorkgroupName:     handler.redshiftDataAPIConfig.WorkgroupName,
-		Parameters:        sqlParameters,
+		WorkgroupName:     service.redshiftDataAPIConfig.WorkgroupName,
+		Parameters:        parameters,
 	})
 	if err != nil {
 		loggerWithContext.Error("error while performing execute statement operation",
@@ -246,9 +112,9 @@ func (handler *redshiftDataApiQueryHandler) executeStatement(ctx context.Context
 	return queryId, nil
 }
 
-func (handler *redshiftDataApiQueryHandler) waitForQueryToFinish(ctx context.Context, queryId string, loggerWithContext *zap.Logger) (*redshiftdata.DescribeStatementOutput, error) {
+func (service *redshiftDataAPIService) waitForQueryToFinish(ctx context.Context, queryId string, loggerWithContext *zap.Logger) (*redshiftdata.DescribeStatementOutput, error) {
 	for {
-		result, err := handler.redshiftDataApiClient.DescribeStatement(ctx, &redshiftdata.DescribeStatementInput{
+		result, err := service.redshiftDataApiClient.DescribeStatement(ctx, &redshiftdata.DescribeStatementInput{
 			Id: aws.String(queryId),
 		})
 		if err != nil {
