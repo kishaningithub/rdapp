@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().StringVar(&listenAddress, "listen", "127.0.0.1:25432", "")
+	rootCmd.Flags().StringVar(&listenAddress, "listen", ":25432", "")
 	rootCmd.Flags().StringVar(&clusterIdentifier, "cluster-identifier", "", "")
 	rootCmd.Flags().StringVar(&database, "database", "", "")
 	rootCmd.Flags().StringVar(&dbUser, "db-user", "", "")

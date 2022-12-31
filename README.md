@@ -44,23 +44,23 @@ Head over to the [releases page](https://github.com/kishaningithub/rdapp/release
 - **Interactive mode** - This loads an interactive view where you can pick and choose clusters to connect to
   - This mode requires permissions to list provisioned clusters, work groups, namespaces and secrets (we do not read secret values, only requires list permission to choose secret ARN).
 ```bash
-$ rdapp --listen "127.0.0.1:15432"
+$ rdapp --listen ":15432"
 ```
 - **Normal Mode** - Here you specify redshift connection config as cli args
   - For proxying redshift serverless run command
 ```bash
-$ rdapp --listen "127.0.0.1:15432" --database "<<db name>>" --workgroup-name "<<work group name>>" --secret-arn "<<secret arn>>"
+$ rdapp --listen ":15432" --database "<<db name>>" --workgroup-name "<<work group name>>" --secret-arn "<<secret arn>>"
 ```
   - For proxying redshift provisioned run command
 ```bash
-$ rdapp --listen "127.0.0.1:15432" --db-user <<db user>> --cluster-identifier "<<cluster identifier>>" --database "<<db name>>"
+$ rdapp --listen ":15432" --db-user <<db user>> --cluster-identifier "<<cluster identifier>>" --database "<<db name>>"
 ```
 - If you notice above other than `--listen` which is the address rdapp listens to all other parameters are exactly the same
   as [aws cli's execute statement command](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/redshift-data/execute-statement.html)
   this is intentional and will be maintained that way in the future. This also helps people who are currently using the cli
   to migrate to rdapp
 - Once the proxy is up, use your favorite postgres tool to interact with your redshift database, the tool will connect to
-  the address specified in the `--listen` and connects to it. If the parameter is not given it defaults to `127.0.0.1:25432`
+  the address specified in the `--listen` and connects to it. If the parameter is not given it defaults to `:25432`
   - My favourite pg tool being [pgcli](https://github.com/dbcli/pgcli) below is an example of using the same
 
 ```bash
@@ -88,7 +88,7 @@ Flags:
       --database string
       --db-user string
   -h, --help                        help for rdapp
-      --listen string                (default "127.0.0.1:25432")
+      --listen string                (default ":25432")
       --secret-arn string
       --verbose                     verbose output
       --workgroup-name string
