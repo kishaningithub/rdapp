@@ -29,6 +29,7 @@ jobs:
       - name: Setup AWS infrastructure for tests
         run: |
           cd infra
+          terraform init
           terraform plan
           terraform apply --auto-approve
       - name: Test
