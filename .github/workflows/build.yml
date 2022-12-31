@@ -22,6 +22,15 @@ jobs:
       - name: Install dependencies
         run: |
           go mod download
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          cli_config_credentials_token: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+      - name: Setup AWS infrastructure for tests
+        run: |
+          cd infra
+          terraform plan
+          terraform apply --auto-approve
       - name: Test
         run: |
           make build
