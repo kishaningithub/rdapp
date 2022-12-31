@@ -9,6 +9,7 @@ import (
 	rdapp "github.com/kishaningithub/rdapp/pkg"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"net"
 	"testing"
 	"time"
 )
@@ -30,6 +31,11 @@ func TestRedshiftDataApiPostgresProxy(t *testing.T) {
 		err := proxy.Run()
 		require.NoError(t, err)
 	}()
+
+	require.Eventually(t, func() bool {
+		_, err := net.Dial("tcp", listenAddress)
+		return err == nil
+	}, 10*time.Second, 10*time.Millisecond, "port is not open")
 
 	databaseUrl := "postgres://postgres:mypassword@localhost:35432/postgres"
 	conn, err := sql.Open("pgx", databaseUrl)
