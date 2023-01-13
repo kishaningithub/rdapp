@@ -21,6 +21,7 @@ jobs:
           install-only: true
       - name: Install dependencies
         run: |
+          echo "Trying a change"
           go mod download
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@v2
