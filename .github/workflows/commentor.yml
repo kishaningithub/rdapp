@@ -1,7 +1,8 @@
 name: Commentor
 
 on:
-  push:
+  issue_comment:
+    types: [created]
 
 jobs:
   terraform_plan:
