@@ -1,0 +1,14 @@
+name: Node version
+
+on:
+  push:
+
+jobs:
+  node_version:
+    name: node_version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Node version
+        run: |
+          echo "this is the node version"
+          node --version
