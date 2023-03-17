@@ -1,11 +1,11 @@
-unit-test:
-	go test -race -v ./...
+include .bingo/Variables.mk
 
-test: generate-sources unit-test
+test:
+	go test -race -v ./...
 
 build: download-deps tidy-deps fmt test lint compile
 
-fmt: ## Run the code formatter
+fmt:
 	gofmt -l -s -w .
 
 download-deps:
@@ -21,14 +21,6 @@ update-deps:
 compile:
 	go build -v ./...
 
-install-binary-dependencies:
-	go list -tags=tools -f '{{ join .Imports "\n" }}' ./tools | xargs go get -v
-	go list -tags=tools -f '{{ join .Imports "\n" }}' ./tools | xargs go install -v
-	go mod tidy
-
-generate-sources: install-binary-dependencies
-	go generate -v ./...
-
-lint: fmt install-binary-dependencies
-	golangci-lint run
-	goreleaser check
+lint:
+	$(GOLANGCI_LINT) run
+	$(GORELEASER) check
