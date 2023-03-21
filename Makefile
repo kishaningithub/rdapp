@@ -21,6 +21,6 @@ update-deps:
 compile:
 	go build -v ./...
 
-lint:
+lint: $(GOLANGCI_LINT) $(GORELEASER)
 	$(GOLANGCI_LINT) run
 	$(GORELEASER) check
