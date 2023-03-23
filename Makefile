@@ -3,7 +3,7 @@ include .bingo/Variables.mk
 test:
 	go test -race -v ./...
 
-build: download-deps tidy-deps fmt test lint compile
+build: download-deps tidy-deps fmt compile test lint
 
 fmt:
 	gofmt -l -s -w .
