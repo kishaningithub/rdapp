@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/redshiftdata v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/redshiftserverless v1.4.5
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.6
-	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/google/uuid v1.3.0
 	github.com/goreleaser/goreleaser v1.14.1

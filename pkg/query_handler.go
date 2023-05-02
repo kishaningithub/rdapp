@@ -26,7 +26,6 @@ func NewRedshiftDataApiQueryHandler(redshiftDataAPIService RedshiftDataAPIServic
 	}
 }
 
-//go:generate mockgen -destination mocks/mock_wire_data_writer.go -package mocks github.com/jeroenrinzema/psql-wire DataWriter
 func (handler *redshiftDataApiQueryHandler) QueryHandler(ctx context.Context, query string, writer wire.DataWriter, parameters []string) error {
 	rdappCtx := RdappContext{
 		Context: ctx,

@@ -2,30 +2,26 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version-file: 'go.mod'
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          install-only: true
-      - name: Install dependencies
-        run: |
-          go mod download
+          go-version-file: "go.mod"
+
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           cli_config_credentials_token: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+
       - name: Setup AWS infrastructure for tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -36,6 +32,7 @@ jobs:
           terraform init
           terraform plan
           terraform apply --auto-approve
+
       - name: Test
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -43,4 +40,3 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           make build
-          goreleaser check
