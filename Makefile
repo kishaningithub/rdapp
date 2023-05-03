@@ -14,7 +14,12 @@ download-deps:
 tidy-deps:
 	go mod tidy
 
-update-deps:
+update-binary-deps: $(BINGO)
+	$(BINGO) get bingo@latest
+	$(BINGO) get golangci-lint@latest
+	$(BINGO) get goreleaser@latest
+
+update-deps: $(update-binary-deps)
 	go get -u -t ./...
 	go mod tidy
 
