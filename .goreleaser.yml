@@ -37,3 +37,16 @@ nfpms:
       - apk
       - deb
       - rpm
+
+kos:
+  - main: ./cmd/
+    base_image: alpine
+    repository: kishanb
+    tags:
+      - '{{.Version}}'
+      - latest
+    bare: true
+    preserve_import_paths: false
+    platforms:
+      - linux/amd64
+      - linux/arm64
