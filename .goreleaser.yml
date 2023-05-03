@@ -39,7 +39,9 @@ nfpms:
       - rpm
 
 kos:
-  - repository: kishanb
+  - main: ./cmd/
+    base_image: alpine
+    repository: kishanb
     tags:
       - '{{.Version}}'
       - latest
