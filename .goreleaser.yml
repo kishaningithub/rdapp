@@ -50,4 +50,3 @@ kos:
       - latest
     bare: true
     preserve_import_paths: false
-    sbom: none
