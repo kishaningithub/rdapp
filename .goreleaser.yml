@@ -8,7 +8,7 @@ builds:
   - main: ./cmd
     binary: rdapp
     ldflags:
-      - -X github.com/kishaningithub/rdapp/cmd.Version={{.Version}}
+      - -X main.Version={{.Version}}
     goos:
       - windows
       - darwin
