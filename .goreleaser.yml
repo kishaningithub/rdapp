@@ -41,7 +41,7 @@ nfpms:
 kos:
   - main: ./cmd/
     base_image: alpine
-    repository: kishanb
+    repository: ghcr.io/kishaningithub/rdapp
     platforms:
       - linux/amd64
       - linux/arm64
