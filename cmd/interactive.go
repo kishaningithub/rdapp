@@ -50,9 +50,12 @@ func NewInteractionService(redshiftService rdapp.RedshiftService, secretsService
 }
 
 func (service *interactionService) Interact(ctx context.Context) (rdapp.RedshiftDataAPIConfig, error) {
-	instances, err := service.loadConfigInstances(ctx)
+	instances, err := service.loadRedshiftConfigInstances(ctx)
 	if err != nil {
 		return rdapp.RedshiftDataAPIConfig{}, err
+	}
+	if len(instances) == 0 {
+		return rdapp.RedshiftDataAPIConfig{}, fmt.Errorf("no redshift instances found try changing the aws region")
 	}
 	selectedInstance, err := service.selectInstance(instances)
 	if err != nil {
@@ -71,9 +74,13 @@ func (service *interactionService) Interact(ctx context.Context) (rdapp.Redshift
 			return rdapp.RedshiftDataAPIConfig{}, err
 		}
 		var selectedSecretArn string
+		secretArns := secrets.GetSecretArns()
+		if len(secretArns) == 0 {
+			return rdapp.RedshiftDataAPIConfig{}, fmt.Errorf("no secrets found try changing the aws region")
+		}
 		err = survey.AskOne(&survey.Select{
 			Message: "Choose the secret",
-			Options: secrets.GetSecretArns(),
+			Options: secretArns,
 		}, &selectedSecretArn)
 		if err != nil {
 			return rdapp.RedshiftDataAPIConfig{}, err
@@ -101,7 +108,7 @@ func (service *interactionService) selectInstance(instances configInstances) (Co
 	return selectedInstance, nil
 }
 
-func (service *interactionService) loadConfigInstances(ctx context.Context) (configInstances, error) {
+func (service *interactionService) loadRedshiftConfigInstances(ctx context.Context) (configInstances, error) {
 	provisionedClusters, err := service.redshiftService.FetchProvisionedClusters(ctx)
 	if err != nil {
 		return nil, err
