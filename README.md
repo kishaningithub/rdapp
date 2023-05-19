@@ -15,6 +15,7 @@ Use your favourite postgres tools to query redshift via the redshift data api.
   - [Architecture](#architecture)
   - [Installation](#installation)
     - [Using Homebrew](#using-homebrew)
+    - [Using docker](#using-docker)
     - [Others](#others)
   - [Examples](#examples)
   - [Usage](#usage)
@@ -33,6 +34,18 @@ Use your favourite postgres tools to query redshift via the redshift data api.
 brew install kishaningithub/tap/rdapp
 ```
 
+### Using docker
+
+pulling the image
+```bash
+docker pull ghcr.io/kishaningithub/rdapp:0.5.5
+```
+
+running the image in interactive mode (volume mounted aws folder for config)
+```bash
+docker run -it -v "${HOME}/.aws:/root/.aws" ghcr.io/kishaningithub/rdapp:0.5.5
+```
+
 ### Others
 
 Head over to the [releases page](https://github.com/kishaningithub/rdapp/releases) and download a binary for your platform
@@ -44,16 +57,16 @@ Head over to the [releases page](https://github.com/kishaningithub/rdapp/release
 - **Interactive mode** - This loads an interactive view where you can pick and choose clusters to connect to
   - This mode requires permissions to list provisioned clusters, work groups, namespaces and secrets (we do not read secret values, only requires list permission to choose secret ARN).
 ```bash
-$ rdapp --listen ":15432"
+rdapp --listen ":15432"
 ```
 - **Normal Mode** - Here you specify redshift connection config as cli args
   - For proxying redshift serverless run command
 ```bash
-$ rdapp --listen ":15432" --database "<<db name>>" --workgroup-name "<<work group name>>" --secret-arn "<<secret arn>>"
+rdapp --listen ":15432" --database "<<db name>>" --workgroup-name "<<work group name>>" --secret-arn "<<secret arn>>"
 ```
   - For proxying redshift provisioned run command
 ```bash
-$ rdapp --listen ":15432" --db-user <<db user>> --cluster-identifier "<<cluster identifier>>" --database "<<db name>>"
+rdapp --listen ":15432" --db-user <<db user>> --cluster-identifier "<<cluster identifier>>" --database "<<db name>>"
 ```
 - If you notice above other than `--listen` which is the address rdapp listens to all other parameters are exactly the same
   as [aws cli's execute statement command](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/redshift-data/execute-statement.html)
@@ -64,7 +77,8 @@ $ rdapp --listen ":15432" --db-user <<db user>> --cluster-identifier "<<cluster 
   - My favourite pg tool being [pgcli](https://github.com/dbcli/pgcli) below is an example of using the same
 
 ```bash
-$ pgcli -h localhost -p 15432
+pgcli -h localhost -p 15432
+
 > select * from employee limit 1;
 +-------+-----------+
 | id    | name      |
