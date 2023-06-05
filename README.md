@@ -38,12 +38,12 @@ brew install kishaningithub/tap/rdapp
 
 pulling the image
 ```bash
-docker pull ghcr.io/kishaningithub/rdapp:0.5.5
+docker pull ghcr.io/kishaningithub/rdapp:0.5.6
 ```
 
 running the image in interactive mode (volume mounted aws folder for config)
 ```bash
-docker run -it -v "${HOME}/.aws:/root/.aws" ghcr.io/kishaningithub/rdapp:0.5.5
+docker run -it -v "${HOME}/.aws:/root/.aws" ghcr.io/kishaningithub/rdapp:0.5.6
 ```
 
 ### Others
